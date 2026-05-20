@@ -211,6 +211,7 @@ model StaffProfile {
   address       String?
   staffRole     StaffRole
   qualification String?
+   department   String?   // e.g., "Science", "Arts", "Administration"
   joinDate      DateTime  @default(now())
   isActive      Boolean   @default(true)
   photoUrl      String?
