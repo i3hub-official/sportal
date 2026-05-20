@@ -4,7 +4,7 @@
   import { page } from '$app/stores';
   import type { PageData } from './$types';
   import { 
-    Search, Filter, Plus, Eye, Users, GraduationCap, 
+    Filter, Plus, Eye, Users, GraduationCap, 
     BookOpen, ChevronLeft, ChevronRight, UserPlus 
   } from 'lucide-svelte';
 
@@ -59,7 +59,6 @@
   <div class="filters-card">
     <div class="filters-body">
       <div class="search-wrapper">
-        <Search size={16} class="search-icon" />
         <input 
           type="search" 
           bind:value={search} 

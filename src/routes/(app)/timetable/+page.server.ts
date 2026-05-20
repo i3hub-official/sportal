@@ -12,7 +12,7 @@ export const load: PageServerLoad = async (event) => {
   const [classes, subjects, staff] = await Promise.all([
     db.class.findMany({ orderBy: [{ level: 'asc' }, { name: 'asc' }] }),
     db.subject.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
-    db.staff.findMany({ orderBy: { lastName: 'asc' } }),
+    db.staffProfile.findMany({ orderBy: { lastName: 'asc' } }),
   ]);
 
   const slots = classId
@@ -41,7 +41,7 @@ export const actions: Actions = {
       return fail(400, { error: 'All fields are required' });
 
     await db.timetableSlot.create({
-      data: { classId, subjectId, staffId: teacherId, dayOfWeek: day as any, startTime: start, endTime: end },
+      data: { classId, subjectId, staffProfileId: teacherId, dayOfWeek: day as any, startTime: start, endTime: end },
     });
     return { success: true };
   },

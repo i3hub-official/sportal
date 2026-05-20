@@ -25,14 +25,14 @@ export const load: PageServerLoad = async (event) => {
     : {};
 
   const [staff, total] = await Promise.all([
-    db.staff.findMany({
+    db.staffProfile.findMany({
       where,
       include: { user: { select: { email: true, role: true, isActive: true } } },
       orderBy: { lastName: 'asc' },
       skip:  (page - 1) * perPage,
       take:  perPage,
     }),
-    db.staff.count({ where }),
+    db.staffProfile.count({ where }),
   ]);
 
   return {
