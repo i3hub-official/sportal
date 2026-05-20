@@ -6,12 +6,139 @@
     ArrowLeft, UserPlus, Camera, User, Mail, Phone,
     Briefcase, Shield, Users, MapPin, GraduationCap,
     Calendar, CreditCard, AlertCircle, CheckCircle,
-    Loader2, Upload, X, Save, Eye, EyeOff
+    Loader2, Upload, X, Save, Eye, EyeOff,
+    Search, ChevronDown, School
   } from 'lucide-svelte';
 
   let { form }: { form: ActionData } = $props();
   let loading = $state(false);
   let photoPreview = $state<string | null>(null);
+
+      const v = $derived(form?.values ?? {});
+      
+  // Dropdown states
+  let roleDropdownOpen = $state(false);
+  let staffRoleDropdownOpen = $state(false);
+  let genderDropdownOpen = $state(false);
+  
+  let roleSearch = $state('');
+  let staffRoleSearch = $state('');
+  let genderSearch = $state('');
+
+  // Role options
+  const roleOptions = [
+    { value: 'TEACHER', label: 'Teacher' },
+    { value: 'ADMIN', label: 'Admin / Bursar' },
+    { value: 'SUPER_ADMIN', label: 'Headmaster' }
+  ];
+
+  // Staff role options
+  const staffRoleOptions = [
+    { value: 'HEADMASTER', label: 'Headmaster' },
+    { value: 'DEPUTY_HEAD', label: 'Deputy Head' },
+    { value: 'CLASS_TEACHER', label: 'Class Teacher' },
+    { value: 'SUBJECT_TEACHER', label: 'Subject Teacher' },
+    { value: 'BURSAR', label: 'Bursar' },
+    { value: 'SECRETARY', label: 'Secretary' },
+    { value: 'LIBRARIAN', label: 'Librarian' },
+    { value: 'COUNSELOR', label: 'Counselor' },
+    { value: 'SUPPORT_STAFF', label: 'Support Staff' }
+  ];
+
+  // Gender options
+  const genderOptions = [
+    { value: 'MALE', label: 'Male' },
+    { value: 'FEMALE', label: 'Female' }
+  ];
+
+  // Selected values
+  let selectedRole = $state(v.role || '');
+  let selectedStaffRole = $state(v.staffRole || '');
+  let selectedGender = $state(v.gender || '');
+
+  // Get selected labels
+  const selectedRoleLabel = $derived(() => {
+    const option = roleOptions.find(r => r.value === selectedRole);
+    return option?.label || 'Select role…';
+  });
+
+  const selectedStaffRoleLabel = $derived(() => {
+    const option = staffRoleOptions.find(r => r.value === selectedStaffRole);
+    return option?.label || 'Select staff role…';
+  });
+
+  const selectedGenderLabel = $derived(() => {
+    const option = genderOptions.find(g => g.value === selectedGender);
+    return option?.label || 'Select gender…';
+  });
+
+  // Filtered options
+  const filteredRoles = $derived(() => {
+    if (!roleSearch) return roleOptions;
+    return roleOptions.filter(r => 
+      r.label.toLowerCase().includes(roleSearch.toLowerCase())
+    );
+  });
+
+  const filteredStaffRoles = $derived(() => {
+    if (!staffRoleSearch) return staffRoleOptions;
+    return staffRoleOptions.filter(r => 
+      r.label.toLowerCase().includes(staffRoleSearch.toLowerCase())
+    );
+  });
+
+  const filteredGenders = $derived(() => {
+    if (!genderSearch) return genderOptions;
+    return genderOptions.filter(g => 
+      g.label.toLowerCase().includes(genderSearch.toLowerCase())
+    );
+  });
+
+  function selectRole(value: string) {
+    selectedRole = value;
+    roleDropdownOpen = false;
+    roleSearch = '';
+  }
+
+  function selectStaffRole(value: string) {
+    selectedStaffRole = value;
+    staffRoleDropdownOpen = false;
+    staffRoleSearch = '';
+  }
+
+  function selectGender(value: string) {
+    selectedGender = value;
+    genderDropdownOpen = false;
+    genderSearch = '';
+  }
+
+  function clearRole() {
+    selectedRole = '';
+    roleDropdownOpen = false;
+    roleSearch = '';
+  }
+
+  function clearStaffRole() {
+    selectedStaffRole = '';
+    staffRoleDropdownOpen = false;
+    staffRoleSearch = '';
+  }
+
+  function clearGender() {
+    selectedGender = '';
+    genderDropdownOpen = false;
+    genderSearch = '';
+  }
+
+  // Close dropdowns when clicking outside
+  function handleClickOutside(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    if (!target.closest('.custom-dropdown')) {
+      roleDropdownOpen = false;
+      staffRoleDropdownOpen = false;
+      genderDropdownOpen = false;
+    }
+  }
 
   function onPhotoChange(e: Event) {
     const file = (e.target as HTMLInputElement).files?.[0];
@@ -26,14 +153,14 @@
     if (fileInput) fileInput.value = '';
   }
 
-  const v = $derived(form?.values ?? {});
+
 </script>
 
 <svelte:head>
   <title>Add Staff — SMS</title>
 </svelte:head>
 
-<div class="add-staff-container">
+<div class="add-staff-container" onclick={handleClickOutside}>
   <div class="add-staff-wrapper">
     <div class="page-header">
       <div class="header-title-section">
@@ -187,47 +314,163 @@
               />
             </div>
 
+            <!-- Role Dropdown -->
             <div class="form-field">
-              <label for="role" class="form-label">
+              <label class="form-label">
                 <Shield size={14} />
                 System Role *
               </label>
-              <select id="role" name="role" class="form-input">
-                <option value="TEACHER" selected={v.role === 'TEACHER'}>Teacher</option>
-                <option value="ADMIN" selected={v.role === 'ADMIN'}>Admin / Bursar</option>
-                <option value="SUPER_ADMIN" selected={v.role === 'SUPER_ADMIN'}>Headmaster</option>
-              </select>
+              <div class="custom-dropdown" class:open={roleDropdownOpen}>
+                <input type="hidden" name="role" value={selectedRole} />
+                <button 
+                  type="button" 
+                  class="dropdown-trigger"
+                  onclick={(e) => { e.stopPropagation(); roleDropdownOpen = !roleDropdownOpen; }}
+                >
+                  <span class="dropdown-value">{selectedRoleLabel()}</span>
+                  {#if selectedRole}
+                    <button 
+                      class="dropdown-clear" 
+                      onclick={(e) => { e.stopPropagation(); clearRole(); }}
+                      aria-label="Clear role"
+                    >
+                      <X size={14} />
+                    </button>
+                  {/if}
+                  <ChevronDown size={16} class="dropdown-icon" />
+                </button>
+                {#if roleDropdownOpen}
+                  <div class="dropdown-menu">
+                    <div class="dropdown-search">
+                      <Search size={14} />
+                      <input 
+                        type="text" 
+                        placeholder="Search role..." 
+                        bind:value={roleSearch}
+                        onclick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    <div class="dropdown-options">
+                      {#each filteredRoles() as opt}
+                        <div 
+                          class="dropdown-option {selectedRole === opt.value ? 'selected' : ''}"
+                          onclick={() => selectRole(opt.value)}
+                        >
+                          {opt.label}
+                        </div>
+                      {:else}
+                        <div class="dropdown-empty">No roles found</div>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+              </div>
             </div>
 
+            <!-- Staff Role Dropdown -->
             <div class="form-field">
-              <label for="staffRole" class="form-label">
+              <label class="form-label">
                 <Briefcase size={14} />
                 Staff Role *
               </label>
-              <select id="staffRole" name="staffRole" required class="form-input">
-                <option value="">Select…</option>
-                <option value="HEADMASTER" selected={v.staffRole === 'HEADMASTER'}>Headmaster</option>
-                <option value="DEPUTY_HEAD" selected={v.staffRole === 'DEPUTY_HEAD'}>Deputy Head</option>
-                <option value="CLASS_TEACHER" selected={v.staffRole === 'CLASS_TEACHER'}>Class Teacher</option>
-                <option value="SUBJECT_TEACHER" selected={v.staffRole === 'SUBJECT_TEACHER'}>Subject Teacher</option>
-                <option value="BURSAR" selected={v.staffRole === 'BURSAR'}>Bursar</option>
-                <option value="SECRETARY" selected={v.staffRole === 'SECRETARY'}>Secretary</option>
-                <option value="LIBRARIAN" selected={v.staffRole === 'LIBRARIAN'}>Librarian</option>
-                <option value="COUNSELOR" selected={v.staffRole === 'COUNSELOR'}>Counselor</option>
-                <option value="SUPPORT_STAFF" selected={v.staffRole === 'SUPPORT_STAFF'}>Support Staff</option>
-              </select>
+              <div class="custom-dropdown" class:open={staffRoleDropdownOpen}>
+                <input type="hidden" name="staffRole" value={selectedStaffRole} />
+                <button 
+                  type="button" 
+                  class="dropdown-trigger"
+                  onclick={(e) => { e.stopPropagation(); staffRoleDropdownOpen = !staffRoleDropdownOpen; }}
+                >
+                  <span class="dropdown-value">{selectedStaffRoleLabel()}</span>
+                  {#if selectedStaffRole}
+                    <button 
+                      class="dropdown-clear" 
+                      onclick={(e) => { e.stopPropagation(); clearStaffRole(); }}
+                      aria-label="Clear staff role"
+                    >
+                      <X size={14} />
+                    </button>
+                  {/if}
+                  <ChevronDown size={16} class="dropdown-icon" />
+                </button>
+                {#if staffRoleDropdownOpen}
+                  <div class="dropdown-menu">
+                    <div class="dropdown-search">
+                      <Search size={14} />
+                      <input 
+                        type="text" 
+                        placeholder="Search staff role..." 
+                        bind:value={staffRoleSearch}
+                        onclick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    <div class="dropdown-options">
+                      {#each filteredStaffRoles() as opt}
+                        <div 
+                          class="dropdown-option {selectedStaffRole === opt.value ? 'selected' : ''}"
+                          onclick={() => selectStaffRole(opt.value)}
+                        >
+                          {opt.label}
+                        </div>
+                      {:else}
+                        <div class="dropdown-empty">No staff roles found</div>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+              </div>
             </div>
 
+            <!-- Gender Dropdown -->
             <div class="form-field">
-              <label for="gender" class="form-label">
+              <label class="form-label">
                 <Users size={14} />
                 Gender *
               </label>
-              <select id="gender" name="gender" required class="form-input">
-                <option value="">Select…</option>
-                <option value="MALE" selected={v.gender === 'MALE'}>Male</option>
-                <option value="FEMALE" selected={v.gender === 'FEMALE'}>Female</option>
-              </select>
+              <div class="custom-dropdown" class:open={genderDropdownOpen}>
+                <input type="hidden" name="gender" value={selectedGender} />
+                <button 
+                  type="button" 
+                  class="dropdown-trigger"
+                  onclick={(e) => { e.stopPropagation(); genderDropdownOpen = !genderDropdownOpen; }}
+                >
+                  <span class="dropdown-value">{selectedGenderLabel()}</span>
+                  {#if selectedGender}
+                    <button 
+                      class="dropdown-clear" 
+                      onclick={(e) => { e.stopPropagation(); clearGender(); }}
+                      aria-label="Clear gender"
+                    >
+                      <X size={14} />
+                    </button>
+                  {/if}
+                  <ChevronDown size={16} class="dropdown-icon" />
+                </button>
+                {#if genderDropdownOpen}
+                  <div class="dropdown-menu">
+                    <div class="dropdown-search">
+                      <Search size={14} />
+                      <input 
+                        type="text" 
+                        placeholder="Search gender..." 
+                        bind:value={genderSearch}
+                        onclick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    <div class="dropdown-options">
+                      {#each filteredGenders() as opt}
+                        <div 
+                          class="dropdown-option {selectedGender === opt.value ? 'selected' : ''}"
+                          onclick={() => selectGender(opt.value)}
+                        >
+                          {opt.label}
+                        </div>
+                      {:else}
+                        <div class="dropdown-empty">No genders found</div>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+              </div>
             </div>
 
             <div class="form-field">
@@ -569,6 +812,135 @@
     resize: vertical;
   }
 
+  /* Custom Dropdown Styles */
+  .custom-dropdown {
+    position: relative;
+    width: 100%;
+  }
+
+  .dropdown-trigger {
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    background: white;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    color: #0f172a;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    transition: all 0.15s ease;
+  }
+
+  .dropdown-trigger:hover {
+    border-color: #94a3b8;
+  }
+
+  .custom-dropdown.open .dropdown-trigger {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  .dropdown-value {
+    flex: 1;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dropdown-icon {
+    flex-shrink: 0;
+    color: #94a3b8;
+    transition: transform 0.15s ease;
+  }
+
+  .custom-dropdown.open .dropdown-icon {
+    transform: rotate(180deg);
+  }
+
+  .dropdown-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #94a3b8;
+    transition: color 0.15s ease;
+  }
+
+  .dropdown-clear:hover {
+    color: #ef4444;
+  }
+
+  .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 0.25rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    z-index: 50;
+    overflow: hidden;
+  }
+
+  .dropdown-search {
+    padding: 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #94a3b8;
+  }
+
+  .dropdown-search input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 0.875rem;
+    background: transparent;
+  }
+
+  .dropdown-search input::placeholder {
+    color: #cbd5e1;
+  }
+
+  .dropdown-options {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .dropdown-option {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: #0f172a;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .dropdown-option:hover {
+    background: #f1f5f9;
+  }
+
+  .dropdown-option.selected {
+    background: #eff6ff;
+    color: #2563eb;
+  }
+
+  .dropdown-empty {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: #94a3b8;
+    text-align: center;
+  }
+
   /* Form Actions */
   .form-actions {
     display: flex;
@@ -692,91 +1064,125 @@
   }
 
   /* Dark Mode */
-  @media (prefers-color-scheme: dark) {
-    .add-staff-container {
-      background: #0f172a;
-    }
+  :global(.dark) .add-staff-container {
+    background: #0f172a;
+  }
 
-    .page-title {
-      color: #f8fafc;
-    }
+  :global(.dark) .page-title {
+    color: #f8fafc;
+  }
 
-    .title-icon {
-      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-    }
+  :global(.dark) .page-subtitle {
+    color: #94a3b8;
+  }
 
-    .back-btn {
-      background: #1e293b;
-      border-color: #334155;
-      color: #cbd5e1;
-    }
+  :global(.dark) .title-icon {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  }
 
-    .back-btn:hover {
-      background: #334155;
-    }
+  :global(.dark) .back-btn {
+    background: #1e293b;
+    border-color: #334155;
+    color: #cbd5e1;
+  }
 
-    .form-card {
-      background: #1e293b;
-      border-color: #334155;
-    }
+  :global(.dark) .back-btn:hover {
+    background: #334155;
+  }
 
-    .photo-placeholder {
-      background: #334155;
-      border-color: #475569;
-    }
+  :global(.dark) .form-card {
+    background: #1e293b;
+    border-color: #334155;
+  }
 
-    .upload-label {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
+  :global(.dark) .photo-placeholder {
+    background: #334155;
+    border-color: #475569;
+  }
 
-    .upload-label:hover {
-      background: #2d4a7a;
-    }
+  :global(.dark) .upload-label {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
 
-    .form-label {
-      color: #cbd5e1;
-    }
+  :global(.dark) .upload-label:hover {
+    background: #2d4a7a;
+  }
 
-    .form-input,
-    .form-textarea {
-      background: #1e293b;
-      border-color: #475569;
-      color: #f8fafc;
-    }
+  :global(.dark) .form-label {
+    color: #cbd5e1;
+  }
 
-    .form-input::placeholder,
-    .form-textarea::placeholder {
-      color: #64748b;
-    }
+  :global(.dark) .form-input,
+  :global(.dark) .form-textarea {
+    background: #1e293b;
+    border-color: #475569;
+    color: #f8fafc;
+  }
 
-    .form-input:focus,
-    .form-textarea:focus {
-      border-color: #3b82f6;
-    }
+  :global(.dark) .form-input::placeholder,
+  :global(.dark) .form-textarea::placeholder {
+    color: #64748b;
+  }
 
-    .cancel-btn {
-      background: #1e293b;
-      border-color: #475569;
-      color: #cbd5e1;
-    }
+  :global(.dark) .form-input:focus,
+  :global(.dark) .form-textarea:focus {
+    border-color: #3b82f6;
+  }
 
-    .cancel-btn:hover {
-      background: #334155;
-    }
+  :global(.dark) .dropdown-trigger {
+    background: #1e293b;
+    border-color: #475569;
+    color: #f8fafc;
+  }
 
-    .photo-section {
-      border-bottom-color: #334155;
-    }
+  :global(.dark) .dropdown-menu {
+    background: #1e293b;
+    border-color: #475569;
+  }
 
-    .form-actions {
-      border-top-color: #334155;
-    }
+  :global(.dark) .dropdown-search {
+    border-bottom-color: #475569;
+  }
 
-    .info-note {
-      background: #78350f;
-      border-color: #92400e;
-      color: #fde68a;
-    }
+  :global(.dark) .dropdown-search input {
+    color: #f8fafc;
+  }
+
+  :global(.dark) .dropdown-option {
+    color: #cbd5e1;
+  }
+
+  :global(.dark) .dropdown-option:hover {
+    background: #334155;
+  }
+
+  :global(.dark) .dropdown-option.selected {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
+
+  :global(.dark) .cancel-btn {
+    background: #1e293b;
+    border-color: #475569;
+    color: #cbd5e1;
+  }
+
+  :global(.dark) .cancel-btn:hover {
+    background: #334155;
+  }
+
+  :global(.dark) .photo-section {
+    border-bottom-color: #334155;
+  }
+
+  :global(.dark) .form-actions {
+    border-top-color: #334155;
+  }
+
+  :global(.dark) .info-note {
+    background: #78350f;
+    border-color: #92400e;
+    color: #fde68a;
   }
 </style>

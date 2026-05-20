@@ -8,5 +8,20 @@
 	</head>
 	<body data-sveltekit-preload-data="hover">
 		<div style="display: contents">%sveltekit.body%</div>
+		<script>
+			// Initialize theme before page loads to prevent flash
+			(function() {
+				const savedTheme = localStorage.getItem('theme');
+				if (savedTheme === 'dark') {
+					document.documentElement.classList.add('dark');
+				} else if (savedTheme === 'light') {
+					document.documentElement.classList.remove('dark');
+				} else if (savedTheme === 'system' || !savedTheme) {
+					if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+						document.documentElement.classList.add('dark');
+					}
+				}
+			})();
+		</script>
 	</body>
 </html>

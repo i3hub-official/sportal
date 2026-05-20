@@ -5,7 +5,8 @@
   import type { LayoutData } from './$types';
   import {
     LayoutDashboard, Users, BookOpen, School, BookMarked,
-    Trophy, ClipboardCheck, Clock, Wallet, Settings, LogOut, GraduationCap, Menu, Loader2
+    Trophy, ClipboardCheck, Clock, Wallet, Settings, LogOut, GraduationCap, Menu, Loader2,
+    Sun, Moon, Monitor
   } from 'lucide-svelte';
 
   let { data, children }: { data: LayoutData; children: any } = $props();
@@ -17,6 +18,64 @@
   let navigationInterval: ReturnType<typeof setInterval> | null = null;
   let showProgress       = $state(false);
   let logoutForm: HTMLFormElement;
+
+  // Theme management
+  let theme = $state<'light' | 'dark' | 'system'>('system');
+  let isDark = $state(false);
+
+  // Initialize theme on mount
+  function initTheme() {
+    // Load saved theme from localStorage
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | 'system' | null;
+    if (savedTheme) {
+      theme = savedTheme;
+    }
+    applyTheme();
+  }
+
+  function applyTheme() {
+    let shouldBeDark: boolean;
+    
+    if (theme === 'system') {
+      shouldBeDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    } else {
+      shouldBeDark = theme === 'dark';
+    }
+    
+    isDark = shouldBeDark;
+    
+    if (shouldBeDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    
+    // Save preference
+    localStorage.setItem('theme', theme);
+  }
+
+  function setTheme(newTheme: 'light' | 'dark' | 'system') {
+    theme = newTheme;
+    applyTheme();
+  }
+
+  // Listen for system theme changes
+  function watchSystemTheme() {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = () => {
+      if (theme === 'system') {
+        applyTheme();
+      }
+    };
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }
+
+  // Initialize theme on client side
+  if (typeof window !== 'undefined') {
+    initTheme();
+    watchSystemTheme();
+  }
 
   // Safely get user data with fallbacks
   const user = $derived(data?.user ?? null);
@@ -289,7 +348,7 @@
       {/each}
     </nav>
 
-    <!-- User -->
+    <!-- User & Theme -->
     <div class="user-block">
       <div class="user-inner">
         <div class="user-avatar">{displayName()?.charAt(0)?.toUpperCase() || 'U'}</div>
@@ -299,6 +358,31 @@
         </div>
         <button type="button" title="Sign out" onclick={confirmLogout} class="logout-btn">
           <LogOut class="icon-sm" />
+        </button>
+      </div>
+      
+      <!-- Theme Selector -->
+      <div class="theme-selector">
+        <button 
+          class="theme-btn {theme === 'light' ? 'active' : ''}" 
+          onclick={() => setTheme('light')}
+          title="Light mode"
+        >
+          <Sun size={14} />
+        </button>
+        <button 
+          class="theme-btn {theme === 'dark' ? 'active' : ''}" 
+          onclick={() => setTheme('dark')}
+          title="Dark mode"
+        >
+          <Moon size={14} />
+        </button>
+        <button 
+          class="theme-btn {theme === 'system' ? 'active' : ''}" 
+          onclick={() => setTheme('system')}
+          title="System preference"
+        >
+          <Monitor size={14} />
         </button>
       </div>
     </div>
@@ -385,6 +469,28 @@
     box-shadow: 0 25px 60px rgba(0,0,0,0.2);
     text-align: center;
     animation: scaleIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* Dark mode modal */
+  :global(.dark) .modal {
+    background: #1e293b;
+  }
+  :global(.dark) .modal-title {
+    color: #f8fafc;
+  }
+  :global(.dark) .modal-desc {
+    color: #94a3b8;
+  }
+  :global(.dark) .modal-desc strong {
+    color: #f8fafc;
+  }
+  :global(.dark) .modal-btn-cancel {
+    background: #334155;
+    border-color: #475569;
+    color: #cbd5e1;
+  }
+  :global(.dark) .modal-btn-cancel:hover {
+    background: #475569;
   }
 
   @keyframes scaleIn {
@@ -549,10 +655,17 @@
     border-radius: 0 2px 2px 0;
   }
 
-  .user-block { padding: 0.5rem; border-top: 1px solid #1e293b; flex-shrink: 0; }
+  .user-block { 
+    padding: 0.5rem; 
+    border-top: 1px solid #1e293b; 
+    flex-shrink: 0; 
+  }
   .user-inner {
-    display: flex; align-items: center;
-    gap: 0.625rem; padding: 0.5rem; border-radius: 0.5rem;
+    display: flex; 
+    align-items: center;
+    gap: 0.625rem; 
+    padding: 0.5rem; 
+    border-radius: 0.5rem;
   }
   .user-avatar {
     width: 32px; height: 32px;
@@ -581,6 +694,41 @@
   }
   .logout-btn:hover { color: #f87171; background: #1e293b; }
 
+  /* Theme Selector */
+  .theme-selector {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.5rem;
+    border-top: 1px solid #1e293b;
+    margin-top: 0.5rem;
+  }
+  
+  .theme-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 0.375rem 0.5rem;
+    background: #1e293b;
+    color: #94a3b8;
+    border: none;
+    border-radius: 0.375rem;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  
+  .theme-btn:hover {
+    background: #334155;
+    color: #f8fafc;
+  }
+  
+  .theme-btn.active {
+    background: #2563eb;
+    color: white;
+  }
+
   /* ── Main ── */
   .main {
     flex: 1; display: flex; flex-direction: column;
@@ -593,6 +741,16 @@
     background: white; border-bottom: 1px solid #e2e8f0;
     flex-shrink: 0;
   }
+  
+  :global(.dark) .topbar {
+    background: #1e293b;
+    border-bottom-color: #334155;
+  }
+  
+  :global(.dark) .topbar-title {
+    color: #f8fafc;
+  }
+  
   @media (min-width: 1024px) { .topbar { display: none; } }
 
   .menu-btn {
@@ -601,6 +759,13 @@
     color: #64748b; cursor: pointer;
   }
   .menu-btn:hover { background: #f1f5f9; }
+  
+  :global(.dark) .menu-btn {
+    color: #94a3b8;
+  }
+  :global(.dark) .menu-btn:hover {
+    background: #334155;
+  }
 
   .topbar-title { font-weight: 700; font-size: 0.875rem; color: #0f172a; }
 
@@ -613,6 +778,11 @@
   }
 
   .content { flex: 1; overflow-y: auto; padding: 1.5rem; }
+  
+  /* Dark mode content background */
+  :global(.dark) .content {
+    background: #0f172a;
+  }
 
   /* ── Animations ── */
   @keyframes fadeIn {

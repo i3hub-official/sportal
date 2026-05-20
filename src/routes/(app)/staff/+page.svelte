@@ -8,7 +8,7 @@
     Users, UserPlus, Eye, UserCheck, UserX,
     Mail, Briefcase, Building2, BadgeCheck, Shield,
     ChevronLeft, ChevronRight, Loader2, AlertCircle,
-    Calendar, Phone, MapPin, Award
+    Calendar, Phone, MapPin, Award, Search
   } from 'lucide-svelte';
 
   let { data }: { data: PageData } = $props();
@@ -73,7 +73,7 @@
     <!-- Summary Cards -->
     {#if data.staff.length > 0}
       <div class="summary-grid">
-        <div class="summary-card">
+        <div class="summary-card total">
           <div class="summary-icon">
             <Users size={20} />
           </div>
@@ -82,7 +82,7 @@
             <p class="summary-value">{summaryStats.total}</p>
           </div>
         </div>
-        <div class="summary-card">
+        <div class="summary-card active">
           <div class="summary-icon">
             <UserCheck size={20} />
           </div>
@@ -91,7 +91,7 @@
             <p class="summary-value">{summaryStats.active}</p>
           </div>
         </div>
-        <div class="summary-card">
+        <div class="summary-card inactive">
           <div class="summary-icon">
             <UserX size={20} />
           </div>
@@ -100,7 +100,7 @@
             <p class="summary-value">{summaryStats.inactive}</p>
           </div>
         </div>
-        <div class="summary-card">
+        <div class="summary-card teachers">
           <div class="summary-icon">
             <Award size={20} />
           </div>
@@ -109,7 +109,7 @@
             <p class="summary-value">{summaryStats.teachers}</p>
           </div>
         </div>
-        <div class="summary-card">
+        <div class="summary-card admin">
           <div class="summary-icon">
             <Shield size={20} />
           </div>
@@ -124,6 +124,7 @@
     <!-- Search -->
     <div class="search-card">
       <div class="search-wrapper">
+        <Search size={16} class="search-icon" />
         <input
           type="search"
           bind:value={search}
@@ -350,12 +351,35 @@
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   }
 
+  .summary-card.total .summary-icon {
+    background: #eff6ff;
+    color: #2563eb;
+  }
+
+  .summary-card.active .summary-icon {
+    background: #ecfdf5;
+    color: #10b981;
+  }
+
+  .summary-card.inactive .summary-icon {
+    background: #fef2f2;
+    color: #ef4444;
+  }
+
+  .summary-card.teachers .summary-icon {
+    background: #f5f3ff;
+    color: #8b5cf6;
+  }
+
+  .summary-card.admin .summary-icon {
+    background: #fef3c7;
+    color: #f59e0b;
+  }
+
   .summary-icon {
     width: 2.5rem;
     height: 2.5rem;
     border-radius: 0.625rem;
-    background: #eff6ff;
-    color: #2563eb;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -411,6 +435,7 @@
     border-radius: 0.5rem;
     font-size: 0.875rem;
     transition: all 0.15s ease;
+    background: white;
   }
 
   .search-input:focus {
@@ -721,138 +746,197 @@
   }
 
   /* Dark Mode */
-  @media (prefers-color-scheme: dark) {
-    .staff-container {
-      background: #0f172a;
-    }
+  :global(.dark) .staff-container {
+    background: #0f172a;
+  }
 
-    .page-title {
-      color: #f8fafc;
-    }
+  :global(.dark) .page-title {
+    color: #f8fafc;
+  }
 
-    .title-icon {
-      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-    }
+  :global(.dark) .page-subtitle {
+    color: #94a3b8;
+  }
 
-    .add-staff-btn {
-      background: #3b82f6;
-    }
+  :global(.dark) .title-icon {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  }
 
-    .add-staff-btn:hover {
-      background: #2563eb;
-    }
+  :global(.dark) .add-staff-btn {
+    background: #3b82f6;
+  }
 
-    .summary-card,
-    .search-card,
-    .table-wrapper {
-      background: #1e293b;
-      border-color: #334155;
-    }
+  :global(.dark) .add-staff-btn:hover {
+    background: #2563eb;
+  }
 
-    .summary-value {
-      color: #f8fafc;
-    }
+  :global(.dark) .summary-card,
+  :global(.dark) .search-card,
+  :global(.dark) .table-wrapper {
+    background: #1e293b;
+    border-color: #334155;
+  }
 
-    .summary-icon {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
+  :global(.dark) .summary-value {
+    color: #f8fafc;
+  }
 
-    .search-input {
-      background: #1e293b;
-      border-color: #475569;
-      color: #f8fafc;
-    }
+  :global(.dark) .summary-label {
+    color: #94a3b8;
+  }
 
-    .search-input::placeholder {
-      color: #64748b;
-    }
+  :global(.dark) .summary-card.total .summary-icon {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
 
-    .search-input:focus {
-      border-color: #3b82f6;
-    }
+  :global(.dark) .summary-card.active .summary-icon {
+    background: #064e3b;
+    color: #6ee7b7;
+  }
 
-    .staff-table thead {
-      background: #0f172a;
-      border-bottom-color: #334155;
-    }
+  :global(.dark) .summary-card.inactive .summary-icon {
+    background: #7f1d1d;
+    color: #fecaca;
+  }
 
-    .staff-table th {
-      color: #94a3b8;
-    }
+  :global(.dark) .summary-card.teachers .summary-icon {
+    background: #4c1d95;
+    color: #c4b5fd;
+  }
 
-    .staff-table td {
-      border-bottom-color: #334155;
-    }
+  :global(.dark) .summary-card.admin .summary-icon {
+    background: #78350f;
+    color: #fde68a;
+  }
 
-    .staff-row:hover td {
-      background: #0f172a;
-    }
+  :global(.dark) .search-input {
+    background: #1e293b;
+    border-color: #475569;
+    color: #f8fafc;
+  }
 
-    .staff-name {
-      color: #f8fafc;
-    }
+  :global(.dark) .search-input::placeholder {
+    color: #64748b;
+  }
 
-    .staff-avatar {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
+  :global(.dark) .search-input:focus {
+    border-color: #3b82f6;
+  }
 
-    .position-cell,
-    .department-cell,
-    .email-cell {
-      color: #cbd5e1;
-    }
+  :global(.dark) .search-icon {
+    color: #64748b;
+  }
 
-    .badge-purple {
-      background: #4c1d95;
-      color: #c4b5fd;
-    }
+  :global(.dark) .staff-table thead {
+    background: #0f172a;
+    border-bottom-color: #334155;
+  }
 
-    .badge-blue {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
+  :global(.dark) .staff-table th {
+    color: #94a3b8;
+  }
 
-    .badge-green {
-      background: #064e3b;
-      color: #6ee7b7;
-    }
+  :global(.dark) .staff-table td {
+    border-bottom-color: #334155;
+  }
 
-    .status-active {
-      background: #064e3b;
-      color: #6ee7b7;
-    }
+  :global(.dark) .staff-row:hover td {
+    background: #0f172a;
+  }
 
-    .status-inactive {
-      background: #7f1d1d;
-      color: #fecaca;
-    }
+  :global(.dark) .staff-name {
+    color: #f8fafc;
+  }
 
-    .view-btn:hover {
-      background: #1e293b;
-    }
+  :global(.dark) .staff-position {
+    color: #94a3b8;
+  }
 
-    .activate-btn:hover {
-      background: #064e3b;
-    }
+  :global(.dark) .staff-avatar {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
 
-    .deactivate-btn:hover {
-      background: #7f1d1d;
-    }
+  :global(.dark) .position-cell,
+  :global(.dark) .department-cell,
+  :global(.dark) .email-cell {
+    color: #cbd5e1;
+  }
 
-    .pagination-btn {
-      background: #1e293b;
-      border-color: #475569;
-      color: #cbd5e1;
-    }
+  :global(.dark) .badge-purple {
+    background: #4c1d95;
+    color: #c4b5fd;
+  }
 
-    .pagination-btn:hover {
-      background: #334155;
-    }
+  :global(.dark) .badge-blue {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
 
-    .empty-icon {
-      color: #475569;
-    }
+  :global(.dark) .badge-green {
+    background: #064e3b;
+    color: #6ee7b7;
+  }
+
+  :global(.dark) .badge-gray {
+    background: #334155;
+    color: #cbd5e1;
+  }
+
+  :global(.dark) .status-active {
+    background: #064e3b;
+    color: #6ee7b7;
+  }
+
+  :global(.dark) .status-inactive {
+    background: #7f1d1d;
+    color: #fecaca;
+  }
+
+  :global(.dark) .view-btn {
+    color: #60a5fa;
+  }
+
+  :global(.dark) .view-btn:hover {
+    background: #1e293b;
+  }
+
+  :global(.dark) .activate-btn {
+    color: #34d399;
+  }
+
+  :global(.dark) .activate-btn:hover {
+    background: #064e3b;
+  }
+
+  :global(.dark) .deactivate-btn {
+    color: #f87171;
+  }
+
+  :global(.dark) .deactivate-btn:hover {
+    background: #7f1d1d;
+  }
+
+  :global(.dark) .pagination-btn {
+    background: #1e293b;
+    border-color: #475569;
+    color: #cbd5e1;
+  }
+
+  :global(.dark) .pagination-btn:hover {
+    background: #334155;
+  }
+
+  :global(.dark) .empty-icon {
+    color: #475569;
+  }
+
+  :global(.dark) .empty-state-content p {
+    color: #94a3b8;
+  }
+
+  :global(.dark) .empty-hint {
+    color: #64748b;
   }
 </style>
