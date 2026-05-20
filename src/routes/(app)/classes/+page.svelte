@@ -5,11 +5,15 @@
   import { 
     School, BookOpen, Users, UserPlus, Plus, X, Check,
     GraduationCap, UserCheck, ChevronRight, AlertCircle,
-    Edit2, Trash2, Settings, Clock
+    Edit2, Trash2, Settings, Clock, Search, ChevronDown
   } from 'lucide-svelte';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
   let showAdd = $state(false);
+
+  // Teacher dropdown states
+  let teacherDropdownOpen = $state<Record<string, boolean>>({});
+  let teacherSearch = $state<Record<string, string>>({});
 
   const levelColor: Record<string, string> = {
     NURSERY: 'badge-purple', 
@@ -38,13 +42,58 @@
     PRIMARY:   data.classes.filter(c => c.level === 'PRIMARY'),
     SECONDARY: data.classes.filter(c => c.level === 'SECONDARY'),
   });
+
+  // Filter teachers based on search
+  function getFilteredTeachers(classId: string) {
+    const searchTerm = teacherSearch[classId] || '';
+    if (!searchTerm) return data.staff;
+    return data.staff.filter(s => 
+      `${s.firstName} ${s.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }
+
+  function toggleTeacherDropdown(classId: string) {
+    teacherDropdownOpen[classId] = !teacherDropdownOpen[classId];
+  }
+
+  function selectTeacher(classId: string, teacherId: string) {
+    // Submit the form to assign teacher
+    const form = document.getElementById(`teacher-form-${classId}`) as HTMLFormElement;
+    const select = form?.querySelector('select[name="classTeacherId"]') as HTMLSelectElement;
+    if (select) {
+      select.value = teacherId;
+      form?.submit();
+    }
+    teacherDropdownOpen[classId] = false;
+    teacherSearch[classId] = '';
+  }
+
+  function clearTeacherSearch(classId: string) {
+    teacherSearch[classId] = '';
+  }
+
+  // Close dropdown when clicking outside
+  function handleClickOutside(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    if (!target.closest('.teacher-dropdown')) {
+      Object.keys(teacherDropdownOpen).forEach(key => {
+        teacherDropdownOpen[key] = false;
+      });
+    }
+  }
+
+  function getSelectedTeacherName(classId: string, teacherId: string | null) {
+    if (!teacherId) return 'Remove teacher';
+    const teacher = data.staff.find(s => s.id === teacherId);
+    return teacher ? `${teacher.firstName} ${teacher.lastName}` : 'Remove teacher';
+  }
 </script>
 
 <svelte:head>
   <title>Classes — SMS</title>
 </svelte:head>
 
-<div class="classes-container">
+<div class="classes-container" onclick={handleClickOutside}>
   <div class="classes-wrapper">
     <div class="page-header">
       <div class="header-title-section">
@@ -155,20 +204,70 @@
                   </span>
                 </div>
 
-                <form method="POST" action="?/assignTeacher" use:enhance class="teacher-form">
-                  <input type="hidden" name="classId" value={cls.id} />
-                  <select name="classTeacherId" class="teacher-select">
-                    <option value="">Remove teacher</option>
-                    {#each data.staff as s (s.id)}
-                      <option value={s.id} selected={s.id === cls.classTeacherId}>
-                        {s.firstName} {s.lastName}
-                      </option>
-                    {/each}
-                  </select>
-                  <button type="submit" class="set-btn">
-                    Set
-                  </button>
-                </form>
+                <!-- Searchable Teacher Dropdown -->
+                <div class="teacher-dropdown">
+                  <form id="teacher-form-{cls.id}" method="POST" action="?/assignTeacher" class="teacher-form">
+                    <input type="hidden" name="classId" value={cls.id} />
+                    <div class="custom-dropdown" class:open={teacherDropdownOpen[cls.id] || false}>
+                      <button 
+                        type="button" 
+                        class="dropdown-trigger"
+                        onclick={(e) => { e.stopPropagation(); toggleTeacherDropdown(cls.id); }}
+                      >
+                        <span class="dropdown-value">
+                          {getSelectedTeacherName(cls.id, cls.classTeacherId)}
+                        </span>
+                        <ChevronDown size={14} class="dropdown-icon" />
+                      </button>
+                      {#if teacherDropdownOpen[cls.id]}
+                        <div class="dropdown-menu">
+                          <div class="dropdown-search">
+                            <Search size={12} />
+                            <input 
+                              type="text" 
+                              placeholder="Search teacher..." 
+                              bind:value={teacherSearch[cls.id]}
+                              onclick={(e) => e.stopPropagation()}
+                              onkeyup={(e) => e.stopPropagation()}
+                            />
+                            {#if teacherSearch[cls.id]}
+                              <button 
+                                class="search-clear" 
+                                onclick={(e) => { e.stopPropagation(); clearTeacherSearch(cls.id); }}
+                              >
+                                <X size={12} />
+                              </button>
+                            {/if}
+                          </div>
+                          <div class="dropdown-options">
+                            <div 
+                              class="dropdown-option {!cls.classTeacherId ? 'selected' : ''}"
+                              onclick={() => selectTeacher(cls.id, '')}
+                            >
+                              Remove teacher
+                            </div>
+                            {#each getFilteredTeachers(cls.id) as s}
+                              <div 
+                                class="dropdown-option {cls.classTeacherId === s.id ? 'selected' : ''}"
+                                onclick={() => selectTeacher(cls.id, s.id)}
+                              >
+                                {s.firstName} {s.lastName}
+                              </div>
+                            {:else}
+                              <div class="dropdown-empty">No teachers found</div>
+                            {/each}
+                          </div>
+                        </div>
+                      {/if}
+                    </div>
+                    <select name="classTeacherId" style="display: none;">
+                      <option value="">Remove teacher</option>
+                      {#each data.staff as s}
+                        <option value={s.id}>{s.firstName} {s.lastName}</option>
+                      {/each}
+                    </select>
+                  </form>
+                </div>
 
                 <a href={'/classes/' + cls.id} class="view-link">
                   View Class
@@ -482,41 +581,147 @@
     font-weight: 500;
   }
 
-  /* Teacher Form */
-  .teacher-form {
-    display: flex;
-    gap: 0.5rem;
+  /* Teacher Dropdown - Searchable */
+  .teacher-dropdown {
+    position: relative;
     margin-bottom: 0.75rem;
   }
 
-  .teacher-select {
-    flex: 1;
-    padding: 0.375rem 0.5rem;
+  .teacher-form {
+    position: relative;
+  }
+
+  .custom-dropdown {
+    position: relative;
+    width: 100%;
+  }
+
+  .dropdown-trigger {
+    width: 100%;
+    padding: 0.375rem 0.75rem;
+    background: white;
     border: 1px solid #cbd5e1;
     border-radius: 0.375rem;
     font-size: 0.75rem;
-    background: white;
-  }
-
-  .teacher-select:focus {
-    outline: none;
-    border-color: #3b82f6;
-  }
-
-  .set-btn {
-    padding: 0.375rem 0.75rem;
-    background: #f1f5f9;
-    color: #475569;
-    border: none;
-    border-radius: 0.375rem;
-    font-size: 0.7rem;
-    font-weight: 500;
+    color: #0f172a;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
     transition: all 0.15s ease;
   }
 
-  .set-btn:hover {
-    background: #e2e8f0;
+  .dropdown-trigger:hover {
+    border-color: #94a3b8;
+  }
+
+  .custom-dropdown.open .dropdown-trigger {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  }
+
+  .dropdown-value {
+    flex: 1;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dropdown-icon {
+    flex-shrink: 0;
+    color: #94a3b8;
+    transition: transform 0.15s ease;
+  }
+
+  .custom-dropdown.open .dropdown-icon {
+    transform: rotate(180deg);
+  }
+
+  .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 0.25rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    z-index: 50;
+    overflow: hidden;
+  }
+
+  .dropdown-search {
+    padding: 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #94a3b8;
+    position: relative;
+  }
+
+  .dropdown-search input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 0.75rem;
+    background: transparent;
+    padding-right: 1.5rem;
+  }
+
+  .dropdown-search input::placeholder {
+    color: #cbd5e1;
+  }
+
+  .search-clear {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #94a3b8;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .search-clear:hover {
+    color: #ef4444;
+  }
+
+  .dropdown-options {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .dropdown-option {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    color: #0f172a;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .dropdown-option:hover {
+    background: #f1f5f9;
+  }
+
+  .dropdown-option.selected {
+    background: #eff6ff;
+    color: #2563eb;
+  }
+
+  .dropdown-empty {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    text-align: center;
   }
 
   /* View Link */
@@ -602,15 +807,13 @@
       border-bottom-color: #334155;
     }
 
-    .form-input,
-    .teacher-select {
+    .form-input {
       background: #1e293b;
       border-color: #475569;
       color: #f8fafc;
     }
 
-    .form-input:focus,
-    .teacher-select:focus {
+    .form-input:focus {
       border-color: #3b82f6;
     }
 
@@ -627,13 +830,40 @@
       border-bottom-color: #334155;
     }
 
-    .set-btn {
-      background: #334155;
+    .dropdown-trigger {
+      background: #1e293b;
+      border-color: #475569;
+      color: #f8fafc;
+    }
+
+    .dropdown-menu {
+      background: #1e293b;
+      border-color: #475569;
+    }
+
+    .dropdown-search {
+      border-bottom-color: #475569;
+    }
+
+    .dropdown-search input {
+      color: #f8fafc;
+    }
+
+    .dropdown-search input::placeholder {
+      color: #64748b;
+    }
+
+    .dropdown-option {
       color: #cbd5e1;
     }
 
-    .set-btn:hover {
-      background: #475569;
+    .dropdown-option:hover {
+      background: #334155;
+    }
+
+    .dropdown-option.selected {
+      background: #1e2d4a;
+      color: #93c5fd;
     }
 
     .view-link {
