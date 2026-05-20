@@ -5,7 +5,7 @@
   import { page } from '$app/stores';
   import type { PageData } from './$types';
   import { 
-    Users, Search, UserPlus, Eye, UserCheck, UserX,
+    Users, UserPlus, Eye, UserCheck, UserX,
     Mail, Briefcase, Building2, BadgeCheck, Shield,
     ChevronLeft, ChevronRight, Loader2, AlertCircle,
     Calendar, Phone, MapPin, Award
@@ -124,7 +124,6 @@
     <!-- Search -->
     <div class="search-card">
       <div class="search-wrapper">
-        <Search size={16} class="search-icon" />
         <input
           type="search"
           bind:value={search}

@@ -5,7 +5,8 @@
   import { 
     BarChart3, BookOpen, Users, Filter, Save, 
     TrendingUp, Award, CheckCircle, AlertCircle,
-    Loader2, Edit2, Eye, Download, Printer
+    Loader2, Edit2, Eye, Download, Printer,
+    Search, ChevronDown, X
   } from 'lucide-svelte';
 
   let { data }: { data: PageData } = $props();
@@ -17,34 +18,107 @@
   let loading         = $state(false);
   let saving          = $state<Record<string, boolean>>({});
 
+  // Dropdown states
+  let termDropdownOpen = $state(false);
+  let classDropdownOpen = $state(false);
+  let subjectDropdownOpen = $state(false);
+  
+  let termSearch = $state('');
+  let classSearch = $state('');
+  let subjectSearch = $state('');
+
+  // Helper function to get term display name
+  function getTermDisplayName(term: any): string {
+    if (term.term) {
+      // Convert enum to display name
+      const termMap: Record<string, string> = {
+        'FIRST': 'First Term',
+        'SECOND': 'Second Term',
+        'THIRD': 'Third Term'
+      };
+      return termMap[term.term] || term.term;
+    }
+    return term.name || 'Unknown Term';
+  }
+
+  // Get selected items labels with safe fallbacks
+  let selectedTermLabel = $derived(() => {
+    const term = data.terms?.find(t => t.id === selectedTerm);
+    return term ? getTermDisplayName(term) : 'Select term…';
+  });
+  
+  let selectedClassLabel = $derived(() => {
+    const classItem = data.classes?.find(c => c.id === selectedClass);
+    return classItem?.name || 'Select class…';
+  });
+  
+  let selectedSubjectLabel = $derived(() => {
+    if (selectedSubject === '') return 'All subjects';
+    const subject = data.subjects?.find(s => s.id === selectedSubject);
+    return subject?.name || 'Select subject…';
+  });
+
+  // Filtered lists with safe access
+  let filteredTerms = $derived(() => {
+    if (!data.terms) return [];
+    return data.terms.filter(t => {
+      const displayName = getTermDisplayName(t);
+      return displayName.toLowerCase().includes(termSearch.toLowerCase());
+    });
+  });
+  
+  let filteredClasses = $derived(() => {
+    if (!data.classes) return [];
+    return data.classes.filter(c => 
+      c.name?.toLowerCase().includes(classSearch.toLowerCase())
+    );
+  });
+  
+  let filteredSubjects = $derived(() => {
+    if (!data.subjects) return [];
+    return data.subjects.filter(s => 
+      s.name?.toLowerCase().includes(subjectSearch.toLowerCase())
+    );
+  });
+
   async function loadStudents() {
     if (!selectedClass || !selectedTerm) return;
     loading = true;
-    const res = await fetch(`/api/results?classId=${selectedClass}&termId=${selectedTerm}&subjectId=${selectedSubject}`);
-    const json = await res.json();
-    students = json.data ?? [];
-    loading = false;
+    try {
+      const res = await fetch(`/api/results?classId=${selectedClass}&termId=${selectedTerm}&subjectId=${selectedSubject}`);
+      const json = await res.json();
+      students = json.data ?? [];
+    } catch (error) {
+      console.error('Failed to load students:', error);
+      students = [];
+    } finally {
+      loading = false;
+    }
   }
 
   async function saveScore(resultId: string | null, studentId: string, subjectId: string, field: string, value: string) {
     const key = `${studentId}-${subjectId}-${field}`;
     saving[key] = true;
     
-    await fetch('/api/results', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({
-        resultId, studentId, subjectId,
-        classId: selectedClass,
-        termId:  selectedTerm,
-        [field]: parseFloat(value) || 0,
-      }),
-    });
-    
-    saving[key] = false;
-    
-    // Refresh to show updated totals/grades
-    await loadStudents();
+    try {
+      await fetch('/api/results', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          resultId, studentId, subjectId,
+          classId: selectedClass,
+          termId:  selectedTerm,
+          [field]: parseFloat(value) || 0,
+        }),
+      });
+      
+      // Refresh to show updated totals/grades
+      await loadStudents();
+    } catch (error) {
+      console.error('Failed to save score:', error);
+    } finally {
+      saving[key] = false;
+    }
   }
 
   function getScoreColor(score: number | null, max: number) {
@@ -67,13 +141,52 @@
       ? ((students.filter(s => (s.totalScore || 0) >= 50).length / students.length) * 100).toFixed(1)
       : 0
   });
+
+  // Close dropdowns when clicking outside
+  function handleClickOutside(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    if (!target.closest('.custom-dropdown')) {
+      termDropdownOpen = false;
+      classDropdownOpen = false;
+      subjectDropdownOpen = false;
+    }
+  }
+
+  // Select handlers
+  function selectTerm(termId: string) {
+    selectedTerm = termId;
+    termDropdownOpen = false;
+    termSearch = '';
+    loadStudents();
+  }
+
+  function selectClass(classId: string) {
+    selectedClass = classId;
+    classDropdownOpen = false;
+    classSearch = '';
+    loadStudents();
+  }
+
+  function selectSubject(subjectId: string) {
+    selectedSubject = subjectId;
+    subjectDropdownOpen = false;
+    subjectSearch = '';
+    loadStudents();
+  }
+
+  function clearSubject() {
+    selectedSubject = '';
+    subjectDropdownOpen = false;
+    subjectSearch = '';
+    loadStudents();
+  }
 </script>
 
 <svelte:head>
   <title>Results — SMS</title>
 </svelte:head>
 
-<div class="results-container">
+<div class="results-container" onclick={handleClickOutside}>
   <div class="results-wrapper">
     <div class="page-header">
       <div class="header-title-section">
@@ -129,35 +242,142 @@
       </div>
     {/if}
 
-    <!-- Filters -->
+    <!-- Filters with Custom Dropdowns -->
     <div class="filters-card">
       <div class="filters-body">
+        <!-- Term Dropdown -->
         <div class="filter-group">
           <label class="filter-label">Term *</label>
-          <select bind:value={selectedTerm} onchange={loadStudents} class="filter-select">
-            <option value="">Select term…</option>
-            {#each data.terms as term}
-              <option value={term.id}>{term.name}</option>
-            {/each}
-          </select>
+          <div class="custom-dropdown" class:open={termDropdownOpen}>
+            <button 
+              type="button" 
+              class="dropdown-trigger"
+              onclick={(e) => { e.stopPropagation(); termDropdownOpen = !termDropdownOpen; }}
+            >
+              <span class="dropdown-value">{selectedTermLabel()}</span>
+              <ChevronDown size={16} class="dropdown-icon" />
+            </button>
+            {#if termDropdownOpen}
+              <div class="dropdown-menu">
+                <div class="dropdown-search">
+                  <Search size={14} />
+                  <input 
+                    type="text" 
+                    placeholder="Search term..." 
+                    bind:value={termSearch}
+                    onclick={(e) => e.stopPropagation()}
+                  />
+                </div>
+                <div class="dropdown-options">
+                  {#each filteredTerms() as term}
+                    <div 
+                      class="dropdown-option {selectedTerm === term.id ? 'selected' : ''}"
+                      onclick={() => selectTerm(term.id)}
+                    >
+                      {getTermDisplayName(term)}
+                    </div>
+                  {:else}
+                    <div class="dropdown-empty">No terms found</div>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+          </div>
         </div>
+
+        <!-- Class Dropdown -->
         <div class="filter-group">
           <label class="filter-label">Class *</label>
-          <select bind:value={selectedClass} onchange={loadStudents} class="filter-select">
-            <option value="">Select class…</option>
-            {#each data.classes as cls}
-              <option value={cls.id}>{cls.name}</option>
-            {/each}
-          </select>
+          <div class="custom-dropdown" class:open={classDropdownOpen}>
+            <button 
+              type="button" 
+              class="dropdown-trigger"
+              onclick={(e) => { e.stopPropagation(); classDropdownOpen = !classDropdownOpen; }}
+            >
+              <span class="dropdown-value">{selectedClassLabel()}</span>
+              <ChevronDown size={16} class="dropdown-icon" />
+            </button>
+            {#if classDropdownOpen}
+              <div class="dropdown-menu">
+                <div class="dropdown-search">
+                  <Search size={14} />
+                  <input 
+                    type="text" 
+                    placeholder="Search class..." 
+                    bind:value={classSearch}
+                    onclick={(e) => e.stopPropagation()}
+                  />
+                </div>
+                <div class="dropdown-options">
+                  {#each filteredClasses() as cls}
+                    <div 
+                      class="dropdown-option {selectedClass === cls.id ? 'selected' : ''}"
+                      onclick={() => selectClass(cls.id)}
+                    >
+                      {cls.name}
+                    </div>
+                  {:else}
+                    <div class="dropdown-empty">No classes found</div>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+          </div>
         </div>
+
+        <!-- Subject Dropdown -->
         <div class="filter-group">
           <label class="filter-label">Subject</label>
-          <select bind:value={selectedSubject} onchange={loadStudents} class="filter-select">
-            <option value="">All subjects</option>
-            {#each data.subjects as sub}
-              <option value={sub.id}>{sub.name}</option>
-            {/each}
-          </select>
+          <div class="custom-dropdown" class:open={subjectDropdownOpen}>
+            <button 
+              type="button" 
+              class="dropdown-trigger"
+              onclick={(e) => { e.stopPropagation(); subjectDropdownOpen = !subjectDropdownOpen; }}
+            >
+              <span class="dropdown-value">{selectedSubjectLabel()}</span>
+              {#if selectedSubject}
+                <button 
+                  class="dropdown-clear" 
+                  onclick={(e) => { e.stopPropagation(); clearSubject(); }}
+                  aria-label="Clear subject"
+                >
+                  <X size={14} />
+                </button>
+              {/if}
+              <ChevronDown size={16} class="dropdown-icon" />
+            </button>
+            {#if subjectDropdownOpen}
+              <div class="dropdown-menu">
+                <div class="dropdown-search">
+                  <Search size={14} />
+                  <input 
+                    type="text" 
+                    placeholder="Search subject..." 
+                    bind:value={subjectSearch}
+                    onclick={(e) => e.stopPropagation()}
+                  />
+                </div>
+                <div class="dropdown-options">
+                  <div 
+                    class="dropdown-option {selectedSubject === '' ? 'selected' : ''}"
+                    onclick={() => selectSubject('')}
+                  >
+                    All subjects
+                  </div>
+                  {#each filteredSubjects() as sub}
+                    <div 
+                      class="dropdown-option {selectedSubject === sub.id ? 'selected' : ''}"
+                      onclick={() => selectSubject(sub.id)}
+                    >
+                      {sub.name}
+                    </div>
+                  {:else}
+                    <div class="dropdown-empty">No subjects found</div>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+          </div>
         </div>
       </div>
     </div>
@@ -233,7 +453,7 @@
                     {row.totalScore ?? '—'}
                   </span>
                 </td>
-                <td>
+                <td class="grade-cell">
                   <span class="grade-badge {row.grade ? `grade-${row.grade.charAt(0)}` : ''}">
                     {row.grade ?? '—'}
                   </span>
@@ -264,6 +484,7 @@
 </div>
 
 <style>
+  /* ... keep all existing styles ... */
   * {
     margin: 0;
     padding: 0;
@@ -388,7 +609,7 @@
 
   .filter-group {
     flex: 1;
-    min-width: 180px;
+    min-width: 200px;
   }
 
   .filter-label {
@@ -401,20 +622,133 @@
     letter-spacing: 0.05em;
   }
 
-  .filter-select {
+  /* Custom Dropdown Styles */
+  .custom-dropdown {
+    position: relative;
+    width: 100%;
+  }
+
+  .dropdown-trigger {
     width: 100%;
     padding: 0.5rem 0.75rem;
+    background: white;
     border: 1px solid #cbd5e1;
     border-radius: 0.5rem;
     font-size: 0.875rem;
-    background: white;
+    color: #0f172a;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    transition: all 0.15s ease;
   }
 
-  .filter-select:focus {
-    outline: none;
+  .dropdown-trigger:hover {
+    border-color: #94a3b8;
+  }
+
+  .custom-dropdown.open .dropdown-trigger {
     border-color: #3b82f6;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  .dropdown-value {
+    flex: 1;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dropdown-icon {
+    flex-shrink: 0;
+    color: #94a3b8;
+    transition: transform 0.15s ease;
+  }
+
+  .custom-dropdown.open .dropdown-icon {
+    transform: rotate(180deg);
+  }
+
+  .dropdown-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #94a3b8;
+    transition: color 0.15s ease;
+  }
+
+  .dropdown-clear:hover {
+    color: #ef4444;
+  }
+
+  .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 0.25rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    z-index: 50;
+    overflow: hidden;
+  }
+
+  .dropdown-search {
+    padding: 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #94a3b8;
+  }
+
+  .dropdown-search input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 0.875rem;
+    background: transparent;
+  }
+
+  .dropdown-search input::placeholder {
+    color: #cbd5e1;
+  }
+
+  .dropdown-options {
+    max-height: 240px;
+    overflow-y: auto;
+  }
+
+  .dropdown-option {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: #0f172a;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .dropdown-option:hover {
+    background: #f1f5f9;
+  }
+
+  .dropdown-option.selected {
+    background: #eff6ff;
+    color: #2563eb;
+  }
+
+  .dropdown-empty {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: #94a3b8;
+    text-align: center;
   }
 
   /* Loading State */
@@ -721,14 +1055,44 @@
       color: #93c5fd;
     }
 
-    .filter-select {
+    .dropdown-trigger {
       background: #1e293b;
       border-color: #475569;
       color: #f8fafc;
     }
 
-    .filter-select:focus {
-      border-color: #3b82f6;
+    .dropdown-trigger:hover {
+      border-color: #64748b;
+    }
+
+    .dropdown-menu {
+      background: #1e293b;
+      border-color: #475569;
+    }
+
+    .dropdown-search {
+      border-bottom-color: #475569;
+    }
+
+    .dropdown-search input {
+      color: #f8fafc;
+    }
+
+    .dropdown-search input::placeholder {
+      color: #64748b;
+    }
+
+    .dropdown-option {
+      color: #cbd5e1;
+    }
+
+    .dropdown-option:hover {
+      background: #334155;
+    }
+
+    .dropdown-option.selected {
+      background: #1e2d4a;
+      color: #93c5fd;
     }
 
     .results-table thead {

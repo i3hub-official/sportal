@@ -18,9 +18,10 @@
   let showProgress       = $state(false);
   let logoutForm: HTMLFormElement;
 
-  // ── Role & StaffRole ────────────────────────────────────────────────────────
-  const role      = data.user?.role      ?? '';
-  const staffRole = data.user?.staffProfile?.staffRole ?? '';
+  // Safely get user data with fallbacks
+  const user = $derived(data?.user ?? null);
+  const role = $derived(user?.role ?? '');
+  const staffRole = $derived(user?.staffProfile?.staffRole ?? '');
 
   // ── Nav definition ──────────────────────────────────────────────────────────
   type NavItem = {
@@ -136,14 +137,23 @@
     }
   });
 
-  // ── Display helpers ─────────────────────────────────────────────────────────
-  const displayName = $derived(
-    data.user?.staffProfile
-      ? `${data.user.staffProfile.firstName} ${data.user.staffProfile.lastName}`
-      : data.user?.studentProfile
-      ? `${data.user.studentProfile.firstName} ${data.user.studentProfile.lastName}`
-      : data.user?.email ?? 'User'
-  );
+  // ── Display helpers with safe fallbacks ─────────────────────────────────────────
+  const displayName = $derived(() => {
+    if (!user) return 'User';
+    if (user.staffProfile) {
+      const firstName = user.staffProfile.firstName || '';
+      const lastName = user.staffProfile.lastName || '';
+      const fullName = `${firstName} ${lastName}`.trim();
+      return fullName || 'Staff';
+    }
+    if (user.studentProfile) {
+      const firstName = user.studentProfile.firstName || '';
+      const lastName = user.studentProfile.lastName || '';
+      const fullName = `${firstName} ${lastName}`.trim();
+      return fullName || 'Student';
+    }
+    return user.email?.split('@')[0] || 'User';
+  });
 
   const roleLabel: Record<string, string> = {
     SUPER_ADMIN: 'Headmaster',
@@ -165,13 +175,16 @@
     SUPPORT_STAFF:   'Support Staff',
   };
 
-  const userSubtitle = $derived(
-    staffRole && role === 'TEACHER'
-      ? (staffRoleLabel[staffRole] ?? roleLabel[role])
-      : roleLabel[role] ?? role
-  );
+  const userSubtitle = $derived(() => {
+    if (!user) return 'Guest';
+    if (staffRole && role === 'TEACHER') {
+      return staffRoleLabel[staffRole] ?? roleLabel[role] ?? 'Teacher';
+    }
+    return roleLabel[role] ?? role ?? 'User';
+  });
 
   function isActive(href: string) {
+    if (!currentPath) return false;
     if (href === '/dashboard') return currentPath === '/dashboard';
     return currentPath.startsWith(href);
   }
@@ -226,7 +239,7 @@
 
       <h2 id="logout-title" class="modal-title">Sign out?</h2>
       <p class="modal-desc">
-        You're signed in as <strong>{displayName}</strong>.<br/>
+        You're signed in as <strong>{displayName()}</strong>.<br/>
         Are you sure you want to sign out?
       </p>
 
@@ -279,10 +292,10 @@
     <!-- User -->
     <div class="user-block">
       <div class="user-inner">
-        <div class="user-avatar">{displayName.charAt(0).toUpperCase()}</div>
+        <div class="user-avatar">{displayName()?.charAt(0)?.toUpperCase() || 'U'}</div>
         <div class="user-info">
-          <p class="user-name">{displayName}</p>
-          <p class="user-role">{userSubtitle}</p>
+          <p class="user-name">{displayName()}</p>
+          <p class="user-role">{userSubtitle()}</p>
         </div>
         <button type="button" title="Sign out" onclick={confirmLogout} class="logout-btn">
           <LogOut class="icon-sm" />

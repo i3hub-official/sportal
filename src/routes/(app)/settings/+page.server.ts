@@ -6,6 +6,20 @@ import { db } from '$lib/server/prisma';
 import { fail } from '@sveltejs/kit';
 import { hashPassword, verifyPassword } from '$lib/server/auth/password';
 
+// Map display names to enum values
+const termNameToEnum: Record<string, Term> = {
+  'First Term': 'FIRST',
+  'Second Term': 'SECOND', 
+  'Third Term': 'THIRD'
+};
+
+// Map enum to display name (for display)
+const termEnumToDisplay: Record<Term, string> = {
+  'FIRST': 'First Term',
+  'SECOND': 'Second Term',
+  'THIRD': 'Third Term'
+};
+
 export const load: PageServerLoad = async (event) => {
   await requireSuperAdmin(event);
 
@@ -13,13 +27,25 @@ export const load: PageServerLoad = async (event) => {
     db.academicYear.findMany({ orderBy: { name: 'desc' } }),
     db.termRecord.findMany({
       include: { academicYear: { select: { name: true } } },
-      orderBy: { startDate: 'desc' },
+      orderBy: { startDate: 'asc' },
     }),
     db.feeStructure.findMany({ orderBy: { name: 'asc' } }),
     db.academicYear.findFirst({ where: { isCurrent: true } }),
   ]);
 
-  return { academicYears, terms, feeStructures, currentYear };
+  // Transform terms to include display name
+  const transformedTerms = terms.map(term => ({
+    ...term,
+    displayName: termEnumToDisplay[term.term as Term] || term.term
+  }));
+
+  return { 
+    academicYears, 
+    terms: transformedTerms, 
+    feeStructures, 
+    currentYear,
+    termEnumToDisplay // Pass to frontend if needed
+  };
 };
 
 export const actions: Actions = {
@@ -49,6 +75,8 @@ export const actions: Actions = {
     const data   = await event.request.formData();
     const yearId = data.get('yearId')?.toString() ?? '';
 
+    if (!yearId) return fail(400, { yearError: 'Year ID is required' });
+
     await db.$transaction([
       db.academicYear.updateMany({ data: { isCurrent: false } }),
       db.academicYear.update({ where: { id: yearId }, data: { isCurrent: true } }),
@@ -68,9 +96,27 @@ export const actions: Actions = {
     if (!name || !academicYearId || !startDate || !endDate)
       return fail(400, { termError: 'All fields are required' });
 
+    // Convert display name to enum
+    const termEnum = termNameToEnum[name];
+    if (!termEnum) {
+      return fail(400, { termError: 'Invalid term name. Use First Term, Second Term, or Third Term' });
+    }
+
+    // Check if term already exists for this academic year
+    const existing = await db.termRecord.findFirst({
+      where: {
+        term: termEnum,
+        academicYearId: academicYearId
+      }
+    });
+
+    if (existing) {
+      return fail(400, { termError: 'This term already exists for the selected academic year' });
+    }
+
     await db.termRecord.create({
       data: {
-        term: name as Term,
+        term: termEnum,
         academicYearId,
         startDate: new Date(startDate),
         endDate:   new Date(endDate),
@@ -85,6 +131,8 @@ export const actions: Actions = {
     await requireSuperAdmin(event);
     const data   = await event.request.formData();
     const termId = data.get('termId')?.toString() ?? '';
+
+    if (!termId) return fail(400, { termError: 'Term ID is required' });
 
     await db.$transaction([
       db.termRecord.updateMany({ data: { isCurrent: false } }),

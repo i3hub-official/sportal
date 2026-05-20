@@ -272,7 +272,8 @@
             <tbody>
               {#each data.terms as term}
                 <tr>
-                  <td class="term-name">{term.name}</td>
+                  <!-- In the terms table, update the term name display -->
+<td class="term-name">{term.displayName || term.term}</td>
                   <td>{term.academicYear.name}</td>
                   <td>{formatDate(term.startDate)}</td>
                   <td>{formatDate(term.endDate)}</td>
