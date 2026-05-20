@@ -7,7 +7,7 @@
     Wallet, AlertTriangle, Filter, Users, 
     Receipt, CreditCard, DollarSign, CheckCircle, 
     Clock, AlertCircle, ChevronLeft, ChevronRight,
-    TrendingUp, TrendingDown, FileText
+    TrendingUp, TrendingDown, FileText, X, ChevronDown, School
   } from 'lucide-svelte';
   
   let { data }: { data: PageData } = $props();
@@ -16,6 +16,49 @@
   let status  = $state(data.status  ?? '');
   let classId = $state(data.classId ?? '');
   let timer: ReturnType<typeof setTimeout>;
+
+  // Dropdown states
+  let statusDropdownOpen = $state(false);
+  let classDropdownOpen = $state(false);
+  
+  let statusSearch = $state('');
+  let classSearch = $state('');
+
+  // Status options
+  const statusOptions = [
+    { value: '', label: 'All Status' },
+    { value: 'PAID', label: 'Paid' },
+    { value: 'PARTIAL', label: 'Partial' },
+    { value: 'PENDING', label: 'Pending' },
+    { value: 'OVERDUE', label: 'Overdue' }
+  ];
+
+  // Get selected labels
+  const selectedStatusLabel = $derived(() => {
+    const option = statusOptions.find(s => s.value === status);
+    return option?.label || 'All Status';
+  });
+
+  const selectedClassLabel = $derived(() => {
+    const classItem = data.classes?.find(c => c.id === classId);
+    return classItem?.name || 'All Classes';
+  });
+
+  // Filtered options
+  const filteredStatuses = $derived(() => {
+    if (!statusSearch) return statusOptions;
+    return statusOptions.filter(s => 
+      s.label.toLowerCase().includes(statusSearch.toLowerCase())
+    );
+  });
+
+  const filteredClasses = $derived(() => {
+    if (!data.classes) return [];
+    if (!classSearch) return data.classes;
+    return data.classes.filter(c => 
+      c.name.toLowerCase().includes(classSearch.toLowerCase())
+    );
+  });
 
   function updateFilters() {
     clearTimeout(timer);
@@ -27,6 +70,34 @@
       p.set('page', '1');
       goto(`?${p}`, { keepFocus: true });
     }, 300);
+  }
+
+  function selectStatus(value: string) {
+    status = value;
+    statusDropdownOpen = false;
+    statusSearch = '';
+    updateFilters();
+  }
+
+  function clearStatus() {
+    status = '';
+    statusDropdownOpen = false;
+    statusSearch = '';
+    updateFilters();
+  }
+
+  function selectClass(id: string) {
+    classId = id;
+    classDropdownOpen = false;
+    classSearch = '';
+    updateFilters();
+  }
+
+  function clearClass() {
+    classId = '';
+    classDropdownOpen = false;
+    classSearch = '';
+    updateFilters();
   }
 
   function formatNGN(n: number) {
@@ -55,13 +126,22 @@
       ? ((data.totalPaid / (data.totalPaid + data.totalBalance)) * 100).toFixed(1)
       : 0
   });
+
+  // Close dropdowns when clicking outside
+  function handleClickOutside(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    if (!target.closest('.custom-dropdown')) {
+      statusDropdownOpen = false;
+      classDropdownOpen = false;
+    }
+  }
 </script>
 
 <svelte:head>
   <title>Fees — SMS</title>
 </svelte:head>
 
-<div class="fees-container">
+<div class="fees-container" onclick={handleClickOutside}>
   <div class="fees-wrapper">
     <div class="page-header">
       <div class="header-title-section">
@@ -109,6 +189,7 @@
     <!-- Filters -->
     <div class="filters-card">
       <div class="filters-body">
+        <!-- Search Input -->
         <div class="search-wrapper">
           <input 
             type="search" 
@@ -119,20 +200,100 @@
           />
         </div>
 
-        <select bind:value={status} onchange={updateFilters} class="filter-select">
-          <option value="">All Status</option>
-          <option value="PAID">Paid</option>
-          <option value="PARTIAL">Partial</option>
-          <option value="PENDING">Pending</option>
-          <option value="OVERDUE">Overdue</option>
-        </select>
+        <!-- Status Dropdown -->
+        <div class="filter-group">
+          <div class="custom-dropdown" class:open={statusDropdownOpen}>
+            <button 
+              type="button" 
+              class="dropdown-trigger"
+              onclick={(e) => { e.stopPropagation(); statusDropdownOpen = !statusDropdownOpen; }}
+            >
+              <span class="dropdown-value">{selectedStatusLabel()}</span>
+              {#if status}
+                <button 
+                  class="dropdown-clear" 
+                  onclick={(e) => { e.stopPropagation(); clearStatus(); }}
+                  aria-label="Clear status"
+                >
+                  <X size={14} />
+                </button>
+              {/if}
+              <ChevronDown size={16} class="dropdown-icon" />
+            </button>
+            {#if statusDropdownOpen}
+              <div class="dropdown-menu">
+                <div class="dropdown-search">
+                  <input 
+                    type="text" 
+                    placeholder="Search status..." 
+                    bind:value={statusSearch}
+                    onclick={(e) => e.stopPropagation()}
+                  />
+                </div>
+                <div class="dropdown-options">
+                  {#each filteredStatuses() as opt}
+                    <div 
+                      class="dropdown-option {status === opt.value ? 'selected' : ''}"
+                      onclick={() => selectStatus(opt.value)}
+                    >
+                      {opt.label}
+                    </div>
+                  {:else}
+                    <div class="dropdown-empty">No statuses found</div>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+          </div>
+        </div>
 
-        <select bind:value={classId} onchange={updateFilters} class="filter-select">
-          <option value="">All Classes</option>
-          {#each data.classes as cls}
-            <option value={cls.id}>{cls.name}</option>
-          {/each}
-        </select>
+        <!-- Class Dropdown -->
+        <div class="filter-group">
+          <div class="custom-dropdown" class:open={classDropdownOpen}>
+            <button 
+              type="button" 
+              class="dropdown-trigger"
+              onclick={(e) => { e.stopPropagation(); classDropdownOpen = !classDropdownOpen; }}
+            >
+              <School size={16} class="dropdown-school-icon" />
+              <span class="dropdown-value">{selectedClassLabel()}</span>
+              {#if classId}
+                <button 
+                  class="dropdown-clear" 
+                  onclick={(e) => { e.stopPropagation(); clearClass(); }}
+                  aria-label="Clear class"
+                >
+                  <X size={14} />
+                </button>
+              {/if}
+              <ChevronDown size={16} class="dropdown-icon" />
+            </button>
+            {#if classDropdownOpen}
+              <div class="dropdown-menu">
+                <div class="dropdown-search">
+                  <input 
+                    type="text" 
+                    placeholder="Search class..." 
+                    bind:value={classSearch}
+                    onclick={(e) => e.stopPropagation()}
+                  />
+                </div>
+                <div class="dropdown-options">
+                  {#each filteredClasses() as cls}
+                    <div 
+                      class="dropdown-option {classId === cls.id ? 'selected' : ''}"
+                      onclick={() => selectClass(cls.id)}
+                    >
+                      {cls.name}
+                    </div>
+                  {:else}
+                    <div class="dropdown-empty">No classes found</div>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+          </div>
+        </div>
       </div>
     </div>
 
@@ -162,13 +323,13 @@
                     <p class="student-admission">{record.student.admissionNo}</p>
                   </div>
                 </div>
-               </td>
+                </td>
               <td>
                 <div class="fee-type">
                   <Receipt size={12} />
                   <span>{record.feeStructure.name}</span>
                 </div>
-               </td>
+                </td>
               <td class="amount">{formatNGN(record.feeStructure.amount)}</td>
               <td class="paid-amount">{formatNGN(record.amountPaid)}</td>
               <td class="balance-amount">{formatNGN(record.balance)}</td>
@@ -182,7 +343,7 @@
                 {:else}
                   <span class="status-badge badge-gray">—</span>
                 {/if}
-              </td>
+                </td>
               <td>
                 {#if record.receiptNo}
                   <span class="receipt-no">
@@ -192,7 +353,7 @@
                 {:else}
                   <span class="no-receipt">—</span>
                 {/if}
-              </td>
+                </td>
             </tr>
           {:else}
             <tr class="empty-row">
@@ -202,7 +363,7 @@
                   <p>No fee records found</p>
                   <span class="empty-hint">Try adjusting your search or filters</span>
                 </div>
-              </td>
+                </td>
             </tr>
           {/each}
         </tbody>
@@ -382,6 +543,10 @@
     gap: 0.75rem;
   }
 
+  .filter-group {
+    min-width: 160px;
+  }
+
   .search-wrapper {
     position: relative;
     flex: 1;
@@ -404,6 +569,7 @@
     border-radius: 0.5rem;
     font-size: 0.875rem;
     transition: all 0.15s ease;
+    background: white;
   }
 
   .search-input:focus {
@@ -412,20 +578,139 @@
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   }
 
-  .filter-select {
-    padding: 0.5rem 0.75rem;
-    border: 1px solid #cbd5e1;
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
-    background: white;
-    cursor: pointer;
+  /* Custom Dropdown Styles */
+  .custom-dropdown {
+    position: relative;
+    width: 100%;
     min-width: 140px;
   }
 
-  .filter-select:focus {
-    outline: none;
+  .dropdown-trigger {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    background: white;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    color: #0f172a;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    transition: all 0.15s ease;
+  }
+
+  .dropdown-trigger:hover {
+    border-color: #94a3b8;
+  }
+
+  .custom-dropdown.open .dropdown-trigger {
     border-color: #3b82f6;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  .dropdown-school-icon {
+    flex-shrink: 0;
+    color: #64748b;
+  }
+
+  .dropdown-value {
+    flex: 1;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dropdown-icon {
+    flex-shrink: 0;
+    color: #94a3b8;
+    transition: transform 0.15s ease;
+  }
+
+  .custom-dropdown.open .dropdown-icon {
+    transform: rotate(180deg);
+  }
+
+  .dropdown-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #94a3b8;
+    transition: color 0.15s ease;
+  }
+
+  .dropdown-clear:hover {
+    color: #ef4444;
+  }
+
+  .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 0.25rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    z-index: 50;
+    overflow: hidden;
+  }
+
+  .dropdown-search {
+    padding: 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #94a3b8;
+  }
+
+  .dropdown-search input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 0.875rem;
+    background: transparent;
+  }
+
+  .dropdown-search input::placeholder {
+    color: #cbd5e1;
+  }
+
+  .dropdown-options {
+    max-height: 240px;
+    overflow-y: auto;
+  }
+
+  .dropdown-option {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: #0f172a;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .dropdown-option:hover {
+    background: #f1f5f9;
+  }
+
+  .dropdown-option.selected {
+    background: #eff6ff;
+    color: #2563eb;
+  }
+
+  .dropdown-empty {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: #94a3b8;
+    text-align: center;
   }
 
   /* Table */
@@ -665,7 +950,15 @@
     }
 
     .search-wrapper,
-    .filter-select {
+    .filter-group {
+      width: 100%;
+    }
+
+    .custom-dropdown {
+      width: 100%;
+    }
+
+    .dropdown-trigger {
       width: 100%;
     }
 
@@ -712,7 +1005,7 @@
     }
 
     .search-input,
-    .filter-select {
+    .dropdown-trigger {
       background: #1e293b;
       border-color: #475569;
       color: #f8fafc;
@@ -723,8 +1016,34 @@
     }
 
     .search-input:focus,
-    .filter-select:focus {
+    .dropdown-trigger:focus {
       border-color: #3b82f6;
+    }
+
+    .dropdown-menu {
+      background: #1e293b;
+      border-color: #475569;
+    }
+
+    .dropdown-search {
+      border-bottom-color: #475569;
+    }
+
+    .dropdown-search input {
+      color: #f8fafc;
+    }
+
+    .dropdown-option {
+      color: #cbd5e1;
+    }
+
+    .dropdown-option:hover {
+      background: #334155;
+    }
+
+    .dropdown-option.selected {
+      background: #1e2d4a;
+      color: #93c5fd;
     }
 
     .fees-table thead {

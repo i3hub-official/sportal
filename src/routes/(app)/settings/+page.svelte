@@ -26,10 +26,10 @@
   });
 
   const tabs = [
-    { id: 'year', label: 'Academic Years', icon: Calendar },
-    { id: 'term', label: 'Terms', icon: Clock },
-    { id: 'fees', label: 'Fee Structures', icon: DollarSign },
-    { id: 'password', label: 'Password', icon: Lock },
+    { id: 'year', label: 'Academic Years', icon: Calendar, shortLabel: 'Years' },
+    { id: 'term', label: 'Terms', icon: Clock, shortLabel: 'Terms' },
+    { id: 'fees', label: 'Fee Structures', icon: DollarSign, shortLabel: 'Fees' },
+    { id: 'password', label: 'Password', icon: Lock, shortLabel: 'Password' },
   ] as const;
 
   function formatCurrency(amount: number) {
@@ -67,17 +67,20 @@
       </div>
     </div>
 
-    <!-- Tabs -->
+    <!-- Tabs - Responsive with horizontal scroll on mobile -->
     <div class="tabs-container">
-      {#each tabs as tab}
-        <button
-          onclick={() => activeTab = tab.id}
-          class="tab-btn {activeTab === tab.id ? 'active' : ''}"
-        >
-          <tab.icon size={16} />
-          {tab.label}
-        </button>
-      {/each}
+      <div class="tabs-scroll">
+        {#each tabs as tab}
+          <button
+            onclick={() => activeTab = tab.id}
+            class="tab-btn {activeTab === tab.id ? 'active' : ''}"
+          >
+            <tab.icon size={18} />
+            <span class="tab-label">{tab.label}</span>
+            <span class="tab-label-short">{tab.shortLabel}</span>
+          </button>
+        {/each}
+      </div>
     </div>
 
     <!-- ── Academic Years ── -->
@@ -272,8 +275,7 @@
             <tbody>
               {#each data.terms as term}
                 <tr>
-                  <!-- In the terms table, update the term name display -->
-<td class="term-name">{term.displayName || term.term}</td>
+                  <td class="term-name">{term.displayName || term.term}</td>
                   <td>{term.academicYear.name}</td>
                   <td>{formatDate(term.startDate)}</td>
                   <td>{formatDate(term.endDate)}</td>
@@ -557,23 +559,44 @@
     margin: 0;
   }
 
-  /* Tabs */
+  /* Tabs - Responsive with horizontal scroll */
   .tabs-container {
-    display: flex;
-    gap: 0.25rem;
     background: #f1f5f9;
-    padding: 0.25rem;
     border-radius: 0.75rem;
     margin-bottom: 1.5rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .tabs-container::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .tabs-container::-webkit-scrollbar-track {
+    background: #e2e8f0;
+    border-radius: 2px;
+  }
+
+  .tabs-container::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border-radius: 2px;
+  }
+
+  .tabs-scroll {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    min-width: min-content;
   }
 
   .tab-btn {
-    flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    padding: 0.5rem 1rem;
+    padding: 0.625rem 1.25rem;
     background: transparent;
     border: none;
     border-radius: 0.5rem;
@@ -582,16 +605,22 @@
     cursor: pointer;
     transition: all 0.15s ease;
     color: #64748b;
+    white-space: nowrap;
   }
 
   .tab-btn:hover {
     color: #1e293b;
+    background: rgba(255, 255, 255, 0.5);
   }
 
   .tab-btn.active {
     background: white;
     color: #0f172a;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+
+  .tab-label-short {
+    display: none;
   }
 
   /* Settings Section */
@@ -910,7 +939,7 @@
   }
 
   /* Responsive Design */
-  @media (max-width: 768px) {
+  @media (max-width: 640px) {
     .settings-container {
       padding: 1rem;
     }
@@ -924,12 +953,17 @@
       height: 2rem;
     }
 
-    .tabs-container {
-      flex-direction: column;
+    /* Hide full label on mobile, show short label */
+    .tab-label {
+      display: none;
+    }
+
+    .tab-label-short {
+      display: inline;
     }
 
     .tab-btn {
-      justify-content: center;
+      padding: 0.5rem 1rem;
     }
 
     .form-grid {
@@ -944,6 +978,15 @@
     .settings-table th,
     .settings-table td {
       padding: 0.5rem;
+    }
+
+    /* Make table more readable on mobile */
+    .settings-table {
+      font-size: 0.75rem;
+    }
+
+    .record-id {
+      font-size: 0.65rem;
     }
   }
 
@@ -965,12 +1008,17 @@
       background: #1e293b;
     }
 
+    .tabs-container::-webkit-scrollbar-track {
+      background: #334155;
+    }
+
     .tab-btn {
       color: #94a3b8;
     }
 
     .tab-btn:hover {
       color: #f8fafc;
+      background: rgba(51, 65, 85, 0.5);
     }
 
     .tab-btn.active {
