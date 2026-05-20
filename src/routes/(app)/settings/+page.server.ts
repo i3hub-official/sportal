@@ -1,5 +1,6 @@
 // src/routes/(app)/settings/+page.server.ts
 import type { PageServerLoad, Actions } from './$types';
+import type { Term } from '@prisma/client';
 import { requireSuperAdmin } from '$lib/server/auth/guards';
 import { db } from '$lib/server/prisma';
 import { fail } from '@sveltejs/kit';
@@ -67,9 +68,9 @@ export const actions: Actions = {
     if (!name || !academicYearId || !startDate || !endDate)
       return fail(400, { termError: 'All fields are required' });
 
-    await db.term.create({
+    await db.termRecord.create({
       data: {
-        name,
+        term: name as Term,
         academicYearId,
         startDate: new Date(startDate),
         endDate:   new Date(endDate),
@@ -86,8 +87,8 @@ export const actions: Actions = {
     const termId = data.get('termId')?.toString() ?? '';
 
     await db.$transaction([
-      db.term.updateMany({ data: { isCurrent: false } }),
-      db.term.update({ where: { id: termId }, data: { isCurrent: true } }),
+      db.termRecord.updateMany({ data: { isCurrent: false } }),
+      db.termRecord.update({ where: { id: termId }, data: { isCurrent: true } }),
     ]);
     return { termSuccess: true };
   },

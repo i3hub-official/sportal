@@ -398,6 +398,7 @@ model FeeStructure {
   id             String      @id @default(cuid())
   name           String // "School Fees", "PTA Levy", "Books"
   amount         Float
+  description    String?
   level          SchoolLevel
   term           Term
   academicYearId String
