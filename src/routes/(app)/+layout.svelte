@@ -1,6 +1,7 @@
 <!-- src/routes/(app)/+layout.svelte -->
 <script lang="ts">
   import { page } from '$app/stores';
+  import { navigating } from '$app/stores';
   import type { LayoutData } from './$types';
   import {
     LayoutDashboard, Users, BookOpen, School, BookMarked,
@@ -10,6 +11,9 @@
   let { data, children }: { data: LayoutData; children: any } = $props();
 
   let sidebarOpen = $state(false);
+  let navigationProgress = $state(0);
+  let navigationInterval: ReturnType<typeof setInterval> | null = null;
+  let showProgress = $state(false);
 
   type NavItem = { label: string; href: string; roles: string[]; icon: any };
 
@@ -29,6 +33,43 @@
   const role       = data.user?.role ?? '';
   const visibleNav = nav.filter(n => n.roles.includes(role));
   const currentPath = $derived($page.url.pathname);
+  const isNavigating = $derived($navigating);
+
+  // Google-style loading progress
+  $effect(() => {
+    if (isNavigating) {
+      // Start loading animation
+      showProgress = true;
+      navigationProgress = 0;
+      
+      // Animate progress from 0 to 90%
+      if (navigationInterval) clearInterval(navigationInterval);
+      
+      navigationInterval = setInterval(() => {
+        if (navigationProgress < 90) {
+          // Increment slowly, slowing down as it approaches 90
+          const increment = Math.max(1, (90 - navigationProgress) / 20);
+          navigationProgress = Math.min(90, navigationProgress + increment);
+        }
+      }, 50);
+      
+    } else {
+      // Complete the progress bar
+      if (navigationProgress < 100) {
+        navigationProgress = 100;
+        // Hide after animation completes
+        setTimeout(() => {
+          showProgress = false;
+          navigationProgress = 0;
+        }, 300);
+      }
+      
+      if (navigationInterval) {
+        clearInterval(navigationInterval);
+        navigationInterval = null;
+      }
+    }
+  });
 
   const displayName = $derived(
     data.user?.staffProfile
@@ -50,9 +91,28 @@
     if (href === '/dashboard') return currentPath === '/dashboard';
     return currentPath.startsWith(href);
   }
+
+  function handleNavigation() {
+    sidebarOpen = false;
+  }
 </script>
 
 <div class="flex h-screen bg-slate-100 overflow-hidden">
+
+  <!-- Google-style Loading Progress Bar -->
+  {#if showProgress}
+    <div class="fixed top-0 left-0 right-0 z-50">
+      <div 
+        class="h-0.5 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-500 transition-all duration-100 ease-out"
+        style="width: {navigationProgress}%;"
+      ></div>
+      <!-- Glow effect -->
+      <div 
+        class="absolute top-0 h-0.5 bg-blue-400 blur-sm transition-all duration-100 ease-out"
+        style="width: {navigationProgress}%; opacity: 0.5;"
+      ></div>
+    </div>
+  {/if}
 
   <!-- Mobile overlay -->
   {#if sidebarOpen}
@@ -87,10 +147,10 @@
       {#each visibleNav as item}
         <a
           href={item.href}
-          onclick={() => sidebarOpen = false}
+          onclick={handleNavigation}
           class="
             flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium
-            transition-colors duration-100
+            transition-colors duration-100 relative overflow-hidden
             {isActive(item.href)
               ? 'bg-blue-600 text-white'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'}
@@ -98,6 +158,10 @@
         >
           <svelte:component this={item.icon} class="w-4 h-4 shrink-0" />
           {item.label}
+          
+                    {#if isActive(item.href)}
+            <span class="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-white rounded-full"></span>
+          {/if}
         </a>
       {/each}
     </nav>
@@ -137,10 +201,88 @@
         <Menu class="w-5 h-5" />
       </button>
       <span class="font-bold text-slate-800 text-sm">SMS Portal</span>
+      
+      <!-- Mobile loading pulse indicator -->
+      {#if isNavigating}
+        <div class="ml-auto">
+          <div class="w-4 h-4 rounded-full bg-blue-500 animate-pulse"></div>
+        </div>
+      {/if}
     </header>
 
     <main class="flex-1 overflow-y-auto p-4 lg:p-6">
-      {@render children()}
+      <!-- Content fade-in animation -->
+      <div class="animate-fadeIn">
+        {@render children()}
+      </div>
     </main>
   </div>
 </div>
+
+<style>
+  /* Custom scrollbar for sidebar */
+  aside nav::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  aside nav::-webkit-scrollbar-track {
+    background: #1e293b;
+  }
+
+  aside nav::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 4px;
+  }
+
+  aside nav::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+  }
+
+  /* Fade-in animation for content */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  /* Pulse animation for mobile indicator */
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  .animate-pulse {
+    animation: pulse 1s ease-in-out infinite;
+  }
+
+  /* Smooth transitions */
+  .transition-all {
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .duration-100 {
+    transition-duration: 100ms;
+  }
+
+  .duration-200 {
+    transition-duration: 200ms;
+  }
+
+  .ease-out {
+    transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+</style>

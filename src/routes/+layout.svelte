@@ -3,6 +3,8 @@
   import './layout.css';
   import type { LayoutData } from './$types';
   import { userStore } from '$lib/stores/user.svelte';
+    import ErrorBoundary from '$lib/components/ErrorBoundary.svelte';
+
 
   let { data, children }: { data: LayoutData; children: any } = $props();
 
@@ -12,4 +14,6 @@
   });
 </script>
 
-{@render children()}
+<ErrorBoundary>
+  {@render children()}
+</ErrorBoundary>
