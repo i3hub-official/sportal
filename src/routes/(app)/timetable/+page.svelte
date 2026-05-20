@@ -4,11 +4,6 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import type { PageData, ActionData } from './$types';
-  import { 
-    Calendar, Clock, BookOpen, User, MapPin, X, Plus, 
-    GripVertical, AlertCircle, Info, ChevronDown, ChevronRight,
-    Trash2, Move, DoorOpen, GraduationCap, Users
-  } from 'lucide-svelte';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -219,23 +214,13 @@
   </div>
 
   {#if error}
-    <div class="tt-error">
-      <div class="tt-error-content">
-        <AlertCircle size={16} />
-        <span>{error}</span>
-      </div>
-      <button onclick={() => error = ''}>
-        <X size={14} />
-      </button>
-    </div>
+    <div class="tt-error">{error} <button onclick={() => error = ''}>✕</button></div>
   {/if}
 
   {#if !selectedClass}
     <!-- Empty state -->
     <div class="empty-state">
-      <div class="empty-icon">
-        <Calendar size={56} />
-      </div>
+      <div class="empty-icon">🗓️</div>
       <p class="empty-title">No class selected</p>
       <p class="empty-sub">Pick a class above to view or build its timetable</p>
     </div>
@@ -257,7 +242,7 @@
 
     <!-- ── Hint ── -->
     <div class="tt-hint">
-      <Info size={14} />
+      <span>💡</span>
       <span>Click an empty cell to add a lesson · Drag a lesson to move it</span>
     </div>
 
@@ -266,9 +251,7 @@
       <div class="tt-grid">
 
         <!-- Corner -->
-        <div class="tt-corner">
-          <Clock size={16} />
-        </div>
+        <div class="tt-corner"></div>
 
         <!-- Day headers -->
         {#each DAYS as day}
@@ -279,21 +262,15 @@
         {/each}
 
         <!-- Rows: one per period -->
-        {#each PERIODS as period (period.start)}
+        {#each PERIODS as period}
           <!-- Period label -->
           <div class="tt-period-label {period.isBreak ? 'is-break' : ''}">
-            <span class="period-name">
-              {#if period.isBreak}
-                {period.label}
-              {:else}
-                {period.label}
-              {/if}
-            </span>
+            <span class="period-name">{period.label}</span>
             <span class="period-time">{period.start}–{period.end}</span>
           </div>
 
           <!-- Cells: one per day -->
-          {#each DAYS as day (day)}
+          {#each DAYS as day}
             {@const slot = slotMap[`${day}::${period.start}`]}
             {@const isTarget = dragOver?.day === day && dragOver?.period === period.start}
             {@const color = slot ? subjectColorMap[slot.subjectId] : null}
@@ -301,7 +278,7 @@
             {#if period.isBreak}
               <!-- Break row -->
               <div class="tt-cell break-cell">
-                <span>{period.label}</span>
+                {period.label}
               </div>
 
             {:else if slot}
@@ -316,19 +293,10 @@
                 tabindex="0"
                 aria-label="{slot.subject.name} — {slot.startTime} to {slot.endTime}"
               >
-                <div class="slot-subject" style="color:{color?.text}">
-                  <BookOpen size={12} />
-                  <span>{slot.subject.name}</span>
-                </div>
-                <div class="slot-teacher">
-                  <User size={10} />
-                  <span>{slot.teacher.firstName} {slot.teacher.lastName}</span>
-                </div>
+                <div class="slot-subject" style="color:{color?.text}">{slot.subject.name}</div>
+                <div class="slot-teacher">{slot.teacher.firstName} {slot.teacher.lastName}</div>
                 {#if slot.room}
-                  <div class="slot-room">
-                    <DoorOpen size={10} />
-                    <span>{slot.room}</span>
-                  </div>
+                  <div class="slot-room">🚪 {slot.room}</div>
                 {/if}
                 <button
                   class="slot-delete"
@@ -339,17 +307,11 @@
                   aria-label="Remove slot"
                   disabled={deletingId === slot.id}
                 >
-                  {#if deletingId === slot.id}
-                    …
-                  {:else}
-                    <Trash2 size={12} />
-                  {/if}
+                  {deletingId === slot.id ? '…' : '✕'}
                 </button>
 
                 <!-- Drag handle indicator -->
-                <div class="drag-handle" title="Drag to move">
-                  <GripVertical size={12} />
-                </div>
+                <div class="drag-handle" title="Drag to move">⠿</div>
               </div>
 
             {:else}
@@ -365,9 +327,7 @@
                 onkeydown={e => e.key === 'Enter' && openPanel(day, period)}
                 aria-label="Add lesson {day} {period.start}"
               >
-                <span class="add-icon">
-                  <Plus size={20} />
-                </span>
+                <span class="add-icon">+</span>
               </div>
             {/if}
           {/each}
@@ -385,13 +345,9 @@
     <div class="panel-header">
       <div>
         <h2 class="panel-title">Add Lesson</h2>
-        <p class="panel-sub">
-          {panelDay.charAt(0) + panelDay.slice(1).toLowerCase()} · {panelSlot}
-        </p>
+        <p class="panel-sub">{panelDay.charAt(0) + panelDay.slice(1).toLowerCase()} · {panelSlot}</p>
       </div>
-      <button onclick={closePanel} class="panel-close">
-        <X size={18} />
-      </button>
+      <button onclick={closePanel} class="panel-close">✕</button>
     </div>
 
     <form
@@ -413,6 +369,7 @@
         <select name="subjectId" required bind:value={pSubject} class="panel-select">
           <option value="">Choose subject…</option>
           {#each data.subjects as sub}
+            {@const color = subjectColorMap[sub.id]}
             <option value={sub.id}>{sub.name}</option>
           {/each}
         </select>
@@ -420,7 +377,6 @@
         {#if pSubject}
           {@const color = subjectColorMap[pSubject]}
           <div class="subject-preview" style="background:{color.bg}; color:{color.text}; border-color:{color.border}">
-            <BookOpen size={12} />
             {subjectName(pSubject)}
           </div>
         {/if}
@@ -437,52 +393,30 @@
       </div>
 
       <div class="panel-field">
-        <label class="panel-label">
-          Room
-          <span class="optional">(optional)</span>
-        </label>
-        <div class="room-input-wrapper">
-          <MapPin size={14} class="room-icon" />
-          <input 
-            name="room" 
-            bind:value={pRoom} 
-            placeholder="e.g. Room 12, Science Lab…" 
-            class="panel-input room-input" 
-          />
-        </div>
+        <label class="panel-label">Room <span class="optional">(optional)</span></label>
+        <input name="room" bind:value={pRoom} placeholder="e.g. Room 12, Science Lab…" class="panel-input" />
       </div>
 
       <div class="panel-field period-preview">
         <div class="preview-row">
-          <span class="preview-key">
-            <Calendar size={12} />
-            Day
-          </span>
+          <span class="preview-key">Day</span>
           <span class="preview-val">{panelDay.charAt(0) + panelDay.slice(1).toLowerCase()}</span>
         </div>
         <div class="preview-row">
-          <span class="preview-key">
-            <Clock size={12} />
-            Period
-          </span>
+          <span class="preview-key">Period</span>
           <span class="preview-val">{PERIODS.find(p => p.start === panelSlot)?.label}</span>
         </div>
         <div class="preview-row">
-          <span class="preview-key">
-            <Clock size={12} />
-            Time
-          </span>
+          <span class="preview-key">Time</span>
           <span class="preview-val">{panelSlot} – {PERIODS.find(p => p.start === panelSlot)?.end}</span>
         </div>
       </div>
 
       <button type="submit" disabled={saving} class="panel-submit">
         {#if saving}
-          <span class="btn-spinner"></span>
-          Adding...
+          <span class="btn-spinner"></span> Adding…
         {:else}
-          <Plus size={16} />
-          Add to Timetable
+          + Add to Timetable
         {/if}
       </button>
     </form>
@@ -542,19 +476,9 @@
     color: #991b1b;
     font-size: 0.875rem;
   }
-  .tt-error-content {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
   .tt-error button {
-    background: none; 
-    border: none; 
-    cursor: pointer;
-    color: #991b1b; 
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    background: none; border: none; cursor: pointer;
+    color: #991b1b; font-size: 1rem; line-height: 1;
   }
 
   /* ── Empty state ── */
@@ -567,10 +491,7 @@
     padding: 4rem 1rem;
     text-align: center;
   }
-  .empty-icon { 
-    color: #cbd5e1;
-    margin-bottom: 1rem; 
-  }
+  .empty-icon { font-size: 3.5rem; margin-bottom: 1rem; }
   .empty-title { font-size: 1.125rem; font-weight: 600; color: #0f172a; margin-bottom: 0.375rem; }
   .empty-sub { font-size: 0.875rem; color: #94a3b8; }
 
@@ -624,11 +545,6 @@
     background: #f8fafc;
     border-bottom: 1px solid #e2e8f0;
     border-right: 1px solid #e2e8f0;
-    padding: 0.75rem 0.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #64748b;
   }
 
   /* Day headers */
@@ -711,6 +627,7 @@
     border: 2px dashed #3b82f6;
   }
   .add-icon {
+    font-size: 1.25rem;
     color: #cbd5e1;
     line-height: 1;
     transition: color 150ms, transform 150ms;
@@ -733,18 +650,11 @@
   .filled-cell:active { cursor: grabbing; }
 
   .slot-subject {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
     font-size: 0.8rem;
     font-weight: 700;
     line-height: 1.3;
-    margin-bottom: 0.25rem;
   }
   .slot-teacher {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
     font-size: 0.7rem;
     opacity: 0.75;
     margin-top: 2px;
@@ -753,9 +663,6 @@
     text-overflow: ellipsis;
   }
   .slot-room {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
     font-size: 0.65rem;
     opacity: 0.65;
     margin-top: 2px;
@@ -764,15 +671,17 @@
   .slot-delete {
     position: absolute;
     top: 4px; right: 4px;
-    width: 20px; height: 20px;
+    width: 18px; height: 18px;
     border-radius: 50%;
     border: none;
     background: rgba(0,0,0,0.12);
     color: inherit;
+    font-size: 0.6rem;
     cursor: pointer;
     display: none;
     align-items: center;
     justify-content: center;
+    line-height: 1;
     transition: background 150ms;
   }
   .slot-delete:hover { background: rgba(239,68,68,0.3); }
@@ -781,6 +690,7 @@
   .drag-handle {
     position: absolute;
     bottom: 4px; right: 4px;
+    font-size: 0.7rem;
     opacity: 0.3;
     pointer-events: none;
   }
@@ -829,6 +739,7 @@
     width: 32px; height: 32px;
     border: none; background: #f1f5f9;
     border-radius: 0.5rem; cursor: pointer;
+    font-size: 0.875rem; color: #64748b;
     display: flex; align-items: center; justify-content: center;
     transition: background 150ms;
   }
@@ -850,21 +761,6 @@
     color: #475569;
   }
   .optional { font-weight: 400; color: #94a3b8; }
-
-  .room-input-wrapper {
-    position: relative;
-  }
-  .room-icon {
-    position: absolute;
-    left: 0.75rem;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #94a3b8;
-    pointer-events: none;
-  }
-  .room-input {
-    padding-left: 2.25rem !important;
-  }
 
   .panel-select, .panel-input {
     width: 100%;
@@ -889,9 +785,6 @@
     border: 1px solid;
     font-size: 0.8rem;
     font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
   }
 
   /* Period info preview */
@@ -905,18 +798,11 @@
   .preview-row {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    padding: 0.375rem 0;
+    padding: 0.25rem 0;
     border-bottom: 1px solid #f1f5f9;
   }
   .preview-row:last-child { border-bottom: none; }
-  .preview-key { 
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-    font-size: 0.75rem; 
-    color: #94a3b8; 
-  }
+  .preview-key { font-size: 0.75rem; color: #94a3b8; }
   .preview-val { font-size: 0.75rem; font-weight: 600; color: #334155; }
 
   .panel-submit {
