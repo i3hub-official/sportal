@@ -5,7 +5,8 @@
   import type { PageData } from './$types';
   import { 
     Filter, Plus, Eye, Users, GraduationCap, 
-    BookOpen, ChevronLeft, ChevronRight, UserPlus 
+    BookOpen, ChevronLeft, ChevronRight, UserPlus,
+    ChevronDown, X
   } from 'lucide-svelte';
 
   let { data }: { data: PageData } = $props();
@@ -14,6 +15,50 @@
   let level   = $state(data.level   ?? '');
   let classId = $state(data.classId ?? '');
   let timer: ReturnType<typeof setTimeout>;
+
+  // Dropdown states
+  let levelDropdownOpen = $state(false);
+  let classDropdownOpen = $state(false);
+  
+  let levelSearch = $state('');
+  let classSearch = $state('');
+
+  // Get selected items labels
+  const selectedLevelLabel = $derived(() => {
+    if (!level) return 'All Levels';
+    const levelMap: Record<string, string> = {
+      'NURSERY': 'Nursery',
+      'PRIMARY': 'Primary',
+      'SECONDARY': 'Secondary'
+    };
+    return levelMap[level] || 'All Levels';
+  });
+
+  const selectedClassLabel = $derived(() => {
+    const classItem = data.classes?.find(c => c.id === classId);
+    return classItem?.name || 'All Classes';
+  });
+
+  // Filtered lists
+  const levelOptions = [
+    { value: '', label: 'All Levels' },
+    { value: 'NURSERY', label: 'Nursery' },
+    { value: 'PRIMARY', label: 'Primary' },
+    { value: 'SECONDARY', label: 'Secondary' }
+  ];
+
+  const filteredLevels = $derived(() => {
+    return levelOptions.filter(l => 
+      l.label.toLowerCase().includes(levelSearch.toLowerCase())
+    );
+  });
+
+  const filteredClasses = $derived(() => {
+    if (!data.classes) return [];
+    return data.classes.filter(c => 
+      c.name.toLowerCase().includes(classSearch.toLowerCase())
+    );
+  });
 
   function updateFilters() {
     clearTimeout(timer);
@@ -27,6 +72,44 @@
     }, 300);
   }
 
+  // Select handlers
+  function selectLevel(value: string) {
+    level = value;
+    levelDropdownOpen = false;
+    levelSearch = '';
+    updateFilters();
+  }
+
+  function selectClass(id: string) {
+    classId = id;
+    classDropdownOpen = false;
+    classSearch = '';
+    updateFilters();
+  }
+
+  function clearLevel() {
+    level = '';
+    levelDropdownOpen = false;
+    levelSearch = '';
+    updateFilters();
+  }
+
+  function clearClass() {
+    classId = '';
+    classDropdownOpen = false;
+    classSearch = '';
+    updateFilters();
+  }
+
+  // Close dropdowns when clicking outside
+  function handleClickOutside(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    if (!target.closest('.custom-dropdown')) {
+      levelDropdownOpen = false;
+      classDropdownOpen = false;
+    }
+  }
+
   const levelColor: Record<string, string> = {
     NURSERY:   'badge-purple',
     PRIMARY:   'badge-blue',
@@ -38,7 +121,7 @@
   <title>Students — SMS</title>
 </svelte:head>
 
-<div class="students-container">
+<div class="students-container" onclick={handleClickOutside}>
   <div class="page-header">
     <div class="header-title-section">
       <div class="title-icon">
@@ -68,19 +151,99 @@
         />
       </div>
 
-      <select bind:value={level} onchange={updateFilters} class="filter-select">
-        <option value="">All Levels</option>
-        <option value="NURSERY">Nursery</option>
-        <option value="PRIMARY">Primary</option>
-        <option value="SECONDARY">Secondary</option>
-      </select>
+      <!-- Level Custom Dropdown -->
+      <div class="filter-group">
+        <div class="custom-dropdown" class:open={levelDropdownOpen}>
+          <button 
+            type="button" 
+            class="dropdown-trigger"
+            onclick={(e) => { e.stopPropagation(); levelDropdownOpen = !levelDropdownOpen; }}
+          >
+            <span class="dropdown-value">{selectedLevelLabel()}</span>
+            {#if level}
+              <button 
+                class="dropdown-clear" 
+                onclick={(e) => { e.stopPropagation(); clearLevel(); }}
+                aria-label="Clear level"
+              >
+                <X size={14} />
+              </button>
+            {/if}
+            <ChevronDown size={16} class="dropdown-icon" />
+          </button>
+          {#if levelDropdownOpen}
+            <div class="dropdown-menu">
+              <div class="dropdown-search">
+                              <input 
+                  type="text" 
+                  placeholder="Search level..." 
+                  bind:value={levelSearch}
+                  onclick={(e) => e.stopPropagation()}
+                />
+              </div>
+              <div class="dropdown-options">
+                {#each filteredLevels() as lvl}
+                  <div 
+                    class="dropdown-option {level === lvl.value ? 'selected' : ''}"
+                    onclick={() => selectLevel(lvl.value)}
+                  >
+                    {lvl.label}
+                  </div>
+                {:else}
+                  <div class="dropdown-empty">No levels found</div>
+                {/each}
+              </div>
+            </div>
+          {/if}
+        </div>
+      </div>
 
-      <select bind:value={classId} onchange={updateFilters} class="filter-select">
-        <option value="">All Classes</option>
-        {#each data.classes as cls}
-          <option value={cls.id}>{cls.name}</option>
-        {/each}
-      </select>
+      <!-- Class Custom Dropdown -->
+      <div class="filter-group">
+        <div class="custom-dropdown" class:open={classDropdownOpen}>
+          <button 
+            type="button" 
+            class="dropdown-trigger"
+            onclick={(e) => { e.stopPropagation(); classDropdownOpen = !classDropdownOpen; }}
+          >
+            <span class="dropdown-value">{selectedClassLabel()}</span>
+            {#if classId}
+              <button 
+                class="dropdown-clear" 
+                onclick={(e) => { e.stopPropagation(); clearClass(); }}
+                aria-label="Clear class"
+              >
+                <X size={14} />
+              </button>
+            {/if}
+            <ChevronDown size={16} class="dropdown-icon" />
+          </button>
+          {#if classDropdownOpen}
+            <div class="dropdown-menu">
+              <div class="dropdown-search">
+                <input 
+                  type="text" 
+                  placeholder="Search class..." 
+                  bind:value={classSearch}
+                  onclick={(e) => e.stopPropagation()}
+                />
+              </div>
+              <div class="dropdown-options">
+                {#each filteredClasses() as cls}
+                  <div 
+                    class="dropdown-option {classId === cls.id ? 'selected' : ''}"
+                    onclick={() => selectClass(cls.id)}
+                  >
+                    {cls.name}
+                  </div>
+                {:else}
+                  <div class="dropdown-empty">No classes found</div>
+                {/each}
+              </div>
+            </div>
+          {/if}
+        </div>
+      </div>
     </div>
   </div>
 
@@ -102,7 +265,7 @@
             <td>
               <div class="student-info">
                 <div class="student-avatar">
-                  {student.firstName.charAt(0)}{student.lastName.charAt(0)}
+                  {student.firstName?.charAt(0) || ''}{student.lastName?.charAt(0) || ''}
                 </div>
                 <span class="student-name">{student.lastName}, {student.firstName}</span>
               </div>
@@ -243,6 +406,10 @@
     gap: 0.75rem;
   }
 
+  .filter-group {
+    min-width: 160px;
+  }
+
   .search-wrapper {
     position: relative;
     flex: 1;
@@ -274,20 +441,134 @@
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   }
 
-  .filter-select {
-    padding: 0.5rem 0.75rem;
-    border: 1px solid #cbd5e1;
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
-    background: white;
-    cursor: pointer;
+  /* Custom Dropdown Styles */
+  .custom-dropdown {
+    position: relative;
+    width: 100%;
     min-width: 140px;
   }
 
-  .filter-select:focus {
-    outline: none;
+  .dropdown-trigger {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    background: white;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    color: #0f172a;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    transition: all 0.15s ease;
+  }
+
+  .dropdown-trigger:hover {
+    border-color: #94a3b8;
+  }
+
+  .custom-dropdown.open .dropdown-trigger {
     border-color: #3b82f6;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  .dropdown-value {
+    flex: 1;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dropdown-icon {
+    flex-shrink: 0;
+    color: #94a3b8;
+    transition: transform 0.15s ease;
+  }
+
+  .custom-dropdown.open .dropdown-icon {
+    transform: rotate(180deg);
+  }
+
+  .dropdown-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #94a3b8;
+    transition: color 0.15s ease;
+  }
+
+  .dropdown-clear:hover {
+    color: #ef4444;
+  }
+
+  .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 0.25rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    z-index: 50;
+    overflow: hidden;
+  }
+
+  .dropdown-search {
+    padding: 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #94a3b8;
+  }
+
+  .dropdown-search input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 0.875rem;
+    background: transparent;
+  }
+
+  .dropdown-search input::placeholder {
+    color: #cbd5e1;
+  }
+
+  .dropdown-options {
+    max-height: 240px;
+    overflow-y: auto;
+  }
+
+  .dropdown-option {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: #0f172a;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .dropdown-option:hover {
+    background: #f1f5f9;
+  }
+
+  .dropdown-option.selected {
+    background: #eff6ff;
+    color: #2563eb;
+  }
+
+  .dropdown-empty {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: #94a3b8;
+    text-align: center;
   }
 
   /* Table */
@@ -495,11 +776,6 @@
       height: 2rem;
     }
 
-    .title-icon :global(svg) {
-      width: 18px;
-      height: 18px;
-    }
-
     .enrol-btn {
       padding: 0.5rem 1rem;
       font-size: 0.75rem;
@@ -513,7 +789,11 @@
       width: 100%;
     }
 
-    .filter-select {
+    .filter-group {
+      width: 100%;
+    }
+
+    .dropdown-trigger {
       width: 100%;
     }
 
@@ -553,7 +833,7 @@
     }
 
     .search-input,
-    .filter-select {
+    .dropdown-trigger {
       background: #1e293b;
       border-color: #475569;
       color: #f8fafc;
@@ -564,12 +844,42 @@
     }
 
     .search-input:focus,
-    .filter-select:focus {
+    .dropdown-trigger:focus {
       border-color: #3b82f6;
     }
 
     .search-icon {
       color: #64748b;
+    }
+
+    .dropdown-menu {
+      background: #1e293b;
+      border-color: #475569;
+    }
+
+    .dropdown-search {
+      border-bottom-color: #475569;
+    }
+
+    .dropdown-search input {
+      color: #f8fafc;
+    }
+
+    .dropdown-search input::placeholder {
+      color: #64748b;
+    }
+
+    .dropdown-option {
+      color: #cbd5e1;
+    }
+
+    .dropdown-option:hover {
+      background: #334155;
+    }
+
+    .dropdown-option.selected {
+      background: #1e2d4a;
+      color: #93c5fd;
     }
 
     .table-wrapper {
