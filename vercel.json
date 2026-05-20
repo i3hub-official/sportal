@@ -1,0 +1,18 @@
+
+{
+  "buildCommand": "pnpm run build",
+  "installCommand": "pnpm install",
+  "framework": "sveltekit",
+  "outputDirectory": ".svelte-kit/output",
+  "functions": {
+    "api/*": {
+      "runtime": "nodejs20.x"
+    }
+  },
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/node"
+    }
+  ]
+}
