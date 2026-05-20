@@ -4,7 +4,8 @@
   import { 
     Users, CheckSquare, Save, Download, 
     Check, X, Clock, AlertCircle, UserCheck, UserX,
-    Loader2, TrendingUp, TrendingDown, Activity
+    Loader2, TrendingUp, TrendingDown, Activity,
+    Search, ChevronDown
   } from 'lucide-svelte';
 
   let { data }: { data: PageData } = $props();
@@ -16,6 +17,25 @@
   let saving        = $state(false);
   let saved         = $state(false);
 
+  // Class dropdown states
+  let classDropdownOpen = $state(false);
+  let classSearch = $state('');
+
+  // Get selected class label
+  const selectedClassLabel = $derived(() => {
+    const classItem = data.classes?.find(c => c.id === selectedClass);
+    return classItem?.name || 'Select class…';
+  });
+
+  // Filtered classes
+  const filteredClasses = $derived(() => {
+    if (!data.classes) return [];
+    if (!classSearch) return data.classes;
+    return data.classes.filter(c => 
+      c.name.toLowerCase().includes(classSearch.toLowerCase())
+    );
+  });
+
   async function loadAttendance() {
     if (!selectedClass || !selectedDate) return;
     loading = true;
@@ -23,6 +43,20 @@
     const json = await res.json();
     students = json.data ?? [];
     loading = false;
+  }
+
+  function selectClass(classId: string) {
+    selectedClass = classId;
+    classDropdownOpen = false;
+    classSearch = '';
+    loadAttendance();
+  }
+
+  function clearClass() {
+    selectedClass = '';
+    classDropdownOpen = false;
+    classSearch = '';
+    students = [];
   }
 
   function setAll(status: string) {
@@ -64,13 +98,21 @@
       ? ((students.filter(s => s.status === 'PRESENT').length / students.length) * 100).toFixed(1)
       : 0
   });
+
+  // Close dropdown when clicking outside
+  function handleClickOutside(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    if (!target.closest('.custom-dropdown')) {
+      classDropdownOpen = false;
+    }
+  }
 </script>
 
 <svelte:head>
   <title>Attendance — SMS</title>
 </svelte:head>
 
-<div class="attendance-container">
+<div class="attendance-container" onclick={handleClickOutside}>
   <div class="attendance-wrapper">
     <div class="page-header">
       <div class="header-title-section">
@@ -86,15 +128,55 @@
 
     <div class="filters-card">
       <div class="filters-body">
+        <!-- Class Searchable Dropdown -->
         <div class="filter-group">
           <label class="filter-label">Class *</label>
-          <select bind:value={selectedClass} onchange={loadAttendance} class="filter-select">
-            <option value="">Select class…</option>
-            {#each data.classes as cls}
-              <option value={cls.id}>{cls.name}</option>
-            {/each}
-          </select>
+          <div class="custom-dropdown" class:open={classDropdownOpen}>
+            <button 
+              type="button" 
+              class="dropdown-trigger"
+              onclick={(e) => { e.stopPropagation(); classDropdownOpen = !classDropdownOpen; }}
+            >
+              <span class="dropdown-value">{selectedClassLabel()}</span>
+              {#if selectedClass}
+                <button 
+                  class="dropdown-clear" 
+                  onclick={(e) => { e.stopPropagation(); clearClass(); }}
+                  aria-label="Clear class"
+                >
+                  <X size={14} />
+                </button>
+              {/if}
+              <ChevronDown size={16} class="dropdown-icon" />
+            </button>
+            {#if classDropdownOpen}
+              <div class="dropdown-menu">
+                <div class="dropdown-search">
+                  <input 
+                    type="text" 
+                    placeholder="Search class..." 
+                    bind:value={classSearch}
+                    onclick={(e) => e.stopPropagation()}
+                  />
+                </div>
+                <div class="dropdown-options">
+                  {#each filteredClasses() as cls}
+                    <div 
+                      class="dropdown-option {selectedClass === cls.id ? 'selected' : ''}"
+                      onclick={() => selectClass(cls.id)}
+                    >
+                      {cls.name}
+                    </div>
+                  {:else}
+                    <div class="dropdown-empty">No classes found</div>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+          </div>
         </div>
+
+        <!-- Date Picker -->
         <div class="filter-group">
           <label class="filter-label">Date *</label>
           <div class="date-input-wrapper">
@@ -340,41 +422,150 @@
     letter-spacing: 0.05em;
   }
 
-  .filter-select {
+  /* Custom Dropdown Styles */
+  .custom-dropdown {
+    position: relative;
+    width: 100%;
+  }
+
+  .dropdown-trigger {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    background: white;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    color: #0f172a;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    transition: all 0.15s ease;
+  }
+
+  .dropdown-trigger:hover {
+    border-color: #94a3b8;
+  }
+
+  .custom-dropdown.open .dropdown-trigger {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  .dropdown-value {
+    flex: 1;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dropdown-icon {
+    flex-shrink: 0;
+    color: #94a3b8;
+    transition: transform 0.15s ease;
+  }
+
+  .custom-dropdown.open .dropdown-icon {
+    transform: rotate(180deg);
+  }
+
+  .dropdown-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #94a3b8;
+    transition: color 0.15s ease;
+  }
+
+  .dropdown-clear:hover {
+    color: #ef4444;
+  }
+
+  .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 0.25rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    z-index: 50;
+    overflow: hidden;
+  }
+
+  .dropdown-search {
+    padding: 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .dropdown-search input {
+    width: 100%;
+    padding: 0.375rem 0.5rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    outline: none;
+    transition: all 0.15s ease;
+  }
+
+  .dropdown-search input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  }
+
+  .dropdown-search input::placeholder {
+    color: #cbd5e1;
+  }
+
+  .dropdown-options {
+    max-height: 240px;
+    overflow-y: auto;
+  }
+
+  .dropdown-option {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: #0f172a;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .dropdown-option:hover {
+    background: #f1f5f9;
+  }
+
+  .dropdown-option.selected {
+    background: #eff6ff;
+    color: #2563eb;
+  }
+
+  .dropdown-empty {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: #94a3b8;
+    text-align: center;
+  }
+
+  /* Date Input */
+  .date-input-wrapper {
+    position: relative;
+  }
+
+  .date-input {
     width: 100%;
     padding: 0.5rem 0.75rem;
     border: 1px solid #cbd5e1;
     border-radius: 0.5rem;
     font-size: 0.875rem;
     background: white;
-    cursor: pointer;
-  }
-
-  .filter-select:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-  }
-
-  .date-input-wrapper {
-    position: relative;
-  }
-
-  .date-icon {
-    position: absolute;
-    left: 0.75rem;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #94a3b8;
-    pointer-events: none;
-  }
-
-  .date-input {
-    width: 100%;
-    padding: 0.5rem 0.75rem 0.5rem 2.25rem;
-    border: 1px solid #cbd5e1;
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
   }
 
   .date-input:focus {
@@ -799,16 +990,47 @@
       border-color: #334155;
     }
 
-    .filter-select,
+    .dropdown-trigger,
     .date-input {
       background: #1e293b;
       border-color: #475569;
       color: #f8fafc;
     }
 
-    .filter-select:focus,
-    .date-input:focus {
+    .dropdown-trigger:hover {
+      border-color: #64748b;
+    }
+
+    .dropdown-menu {
+      background: #1e293b;
+      border-color: #475569;
+    }
+
+    .dropdown-search {
+      border-bottom-color: #475569;
+    }
+
+    .dropdown-search input {
+      background: #1e293b;
+      border-color: #475569;
+      color: #f8fafc;
+    }
+
+    .dropdown-search input:focus {
       border-color: #3b82f6;
+    }
+
+    .dropdown-option {
+      color: #cbd5e1;
+    }
+
+    .dropdown-option:hover {
+      background: #334155;
+    }
+
+    .dropdown-option.selected {
+      background: #1e2d4a;
+      color: #93c5fd;
     }
 
     .summary-value {

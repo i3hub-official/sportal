@@ -4,6 +4,12 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import type { PageData, ActionData } from './$types';
+  import { 
+    Calendar, Clock, BookOpen, User, MapPin, X, Plus, 
+    GripVertical, AlertCircle, Info, ChevronDown, ChevronRight,
+    Trash2, Move, DoorOpen, GraduationCap, Users, Loader2,
+    Search, School
+  } from 'lucide-svelte';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -11,12 +17,16 @@
   let selectedClass = $state(data.selectedClassId ?? '');
   let showPanel     = $state(false);
   let panelDay      = $state('');
-  let panelSlot     = $state<string | null>(null); // period key e.g. "08:00"
+  let panelSlot     = $state<string | null>(null);
   let saving        = $state(false);
   let deletingId    = $state<string | null>(null);
   let dragSlot      = $state<any>(null);
   let dragOver      = $state<{ day: string; period: string } | null>(null);
   let error         = $state('');
+
+  // Class dropdown states
+  let classDropdownOpen = $state(false);
+  let classSearch = $state('');
 
   // ── Panel form fields ────────────────────────────────────────────────────────
   let pSubject = $state('');
@@ -43,20 +53,20 @@
     { label: '8th Period', start: '13:30', end: '14:10' },
   ];
 
-  // Subject color palette — assigned per subject index
+  // Subject color palette
   const COLORS = [
-    { bg: '#e0f2fe', text: '#0369a1', border: '#7dd3fc' }, // sky
-    { bg: '#d1fae5', text: '#065f46', border: '#6ee7b7' }, // emerald
-    { bg: '#fce7f3', text: '#9d174d', border: '#f9a8d4' }, // pink
-    { bg: '#fef3c7', text: '#92400e', border: '#fcd34d' }, // amber
-    { bg: '#ede9fe', text: '#5b21b6', border: '#c4b5fd' }, // violet
-    { bg: '#fee2e2', text: '#991b1b', border: '#fca5a5' }, // red
-    { bg: '#cffafe', text: '#164e63', border: '#67e8f9' }, // cyan
-    { bg: '#dcfce7', text: '#14532d', border: '#86efac' }, // green
-    { bg: '#fef9c3', text: '#713f12', border: '#fde047' }, // yellow
-    { bg: '#f3e8ff', text: '#6b21a8', border: '#d8b4fe' }, // purple
-    { bg: '#ffedd5', text: '#7c2d12', border: '#fdba74' }, // orange
-    { bg: '#f0fdf4', text: '#15803d', border: '#4ade80' }, // lime
+    { bg: '#e0f2fe', text: '#0369a1', border: '#7dd3fc' },
+    { bg: '#d1fae5', text: '#065f46', border: '#6ee7b7' },
+    { bg: '#fce7f3', text: '#9d174d', border: '#f9a8d4' },
+    { bg: '#fef3c7', text: '#92400e', border: '#fcd34d' },
+    { bg: '#ede9fe', text: '#5b21b6', border: '#c4b5fd' },
+    { bg: '#fee2e2', text: '#991b1b', border: '#fca5a5' },
+    { bg: '#cffafe', text: '#164e63', border: '#67e8f9' },
+    { bg: '#dcfce7', text: '#14532d', border: '#86efac' },
+    { bg: '#fef9c3', text: '#713f12', border: '#fde047' },
+    { bg: '#f3e8ff', text: '#6b21a8', border: '#d8b4fe' },
+    { bg: '#ffedd5', text: '#7c2d12', border: '#fdba74' },
+    { bg: '#f0fdf4', text: '#15803d', border: '#4ade80' },
   ];
 
   // Map subjectId → color
@@ -67,7 +77,7 @@
     }, {} as Record<string, typeof COLORS[0]>)
   );
 
-  // ── Slot lookup: day+startTime → slot ────────────────────────────────────────
+  // ── Slot lookup ──────────────────────────────────────────────────────────────
   const slotMap = $derived(
     data.slots.reduce((acc, slot) => {
       const key = `${slot.dayOfWeek}::${slot.startTime}`;
@@ -76,10 +86,35 @@
     }, {} as Record<string, any>)
   );
 
+  // Get selected class label
+  const selectedClassLabel = $derived(() => {
+    const classItem = data.classes?.find(c => c.id === selectedClass);
+    return classItem?.name || 'Choose class…';
+  });
+
+  // Filtered classes
+  const filteredClasses = $derived(() => {
+    if (!data.classes) return [];
+    if (!classSearch) return data.classes;
+    return data.classes.filter(c => 
+      c.name.toLowerCase().includes(classSearch.toLowerCase())
+    );
+  });
+
   // ── Class change ─────────────────────────────────────────────────────────────
-  function changeClass(e: Event) {
-    selectedClass = (e.target as HTMLSelectElement).value;
+  function selectClass(classId: string) {
+    selectedClass = classId;
+    classDropdownOpen = false;
+    classSearch = '';
     goto(`?class=${selectedClass}`, { replaceState: true });
+    showPanel = false;
+  }
+
+  function clearClass() {
+    selectedClass = '';
+    classDropdownOpen = false;
+    classSearch = '';
+    goto(`?class=`, { replaceState: true });
     showPanel = false;
   }
 
@@ -87,7 +122,7 @@
   function openPanel(day: string, period: typeof PERIODS[0]) {
     if (period.isBreak) return;
     const existing = slotMap[`${day}::${period.start}`];
-    if (existing) return; // cell occupied
+    if (existing) return;
     panelDay  = day;
     panelSlot = period.start;
     pSubject  = '';
@@ -124,11 +159,9 @@
     if (!dragSlot || period.isBreak) return;
     if (dragSlot.dayOfWeek === day && dragSlot.startTime === period.start) return;
 
-    // Check target is free
     const target = slotMap[`${day}::${period.start}`];
     if (target) { error = 'That slot is already occupied'; return; }
 
-    // Calculate new end time based on original duration
     const [sh, sm] = dragSlot.startTime.split(':').map(Number);
     const [eh, em] = dragSlot.endTime.split(':').map(Number);
     const duration = (eh * 60 + em) - (sh * 60 + sm);
@@ -136,7 +169,6 @@
     const newEndMin = nh * 60 + nm + duration;
     const newEnd = `${String(Math.floor(newEndMin / 60)).padStart(2, '0')}:${String(newEndMin % 60).padStart(2, '0')}`;
 
-    // POST to moveSlot action
     const fd = new FormData();
     fd.append('slotId',    dragSlot.id);
     fd.append('dayOfWeek', day);
@@ -178,6 +210,14 @@
     if (form?.error) error = form.error;
     if (form?.success) { showPanel = false; error = ''; }
   });
+
+  // Close dropdown when clicking outside
+  function handleClickOutside(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    if (!target.closest('.custom-dropdown')) {
+      classDropdownOpen = false;
+    }
+  }
 </script>
 
 <svelte:head><title>Timetable — SMS</title></svelte:head>
@@ -187,7 +227,7 @@
   <input type="hidden" name="slotId" bind:value={deleteSlotId} />
 </form>
 
-<div class="tt-page">
+<div class="tt-page" onclick={handleClickOutside}>
 
   <!-- ── Header ── -->
   <div class="tt-header">
@@ -203,24 +243,72 @@
     </div>
 
     <div class="tt-header-right">
-      <!-- Class selector -->
-      <select onchange={changeClass} class="class-select">
-        <option value="">Choose class…</option>
-        {#each data.classes as cls}
-          <option value={cls.id} selected={cls.id === selectedClass}>{cls.name}</option>
-        {/each}
-      </select>
+      <!-- Searchable Class Dropdown -->
+      <div class="custom-dropdown" class:open={classDropdownOpen}>
+        <button 
+          type="button" 
+          class="dropdown-trigger"
+          onclick={(e) => { e.stopPropagation(); classDropdownOpen = !classDropdownOpen; }}
+        >
+          <School size={16} class="dropdown-school-icon" />
+          <span class="dropdown-value">{selectedClassLabel()}</span>
+          {#if selectedClass}
+            <button 
+              class="dropdown-clear" 
+              onclick={(e) => { e.stopPropagation(); clearClass(); }}
+              aria-label="Clear class"
+            >
+              <X size={14} />
+            </button>
+          {/if}
+          <ChevronDown size={16} class="dropdown-icon" />
+        </button>
+        {#if classDropdownOpen}
+          <div class="dropdown-menu">
+            <div class="dropdown-search">
+              <Search size={14} />
+              <input 
+                type="text" 
+                placeholder="Search class..." 
+                bind:value={classSearch}
+                onclick={(e) => e.stopPropagation()}
+              />
+            </div>
+            <div class="dropdown-options">
+              {#each filteredClasses() as cls}
+                <div 
+                  class="dropdown-option {selectedClass === cls.id ? 'selected' : ''}"
+                  onclick={() => selectClass(cls.id)}
+                >
+                  {cls.name}
+                </div>
+              {:else}
+                <div class="dropdown-empty">No classes found</div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      </div>
     </div>
   </div>
 
   {#if error}
-    <div class="tt-error">{error} <button onclick={() => error = ''}>✕</button></div>
+    <div class="tt-error">
+      <div class="tt-error-content">
+        <AlertCircle size={16} />
+        <span>{error}</span>
+      </div>
+      <button onclick={() => error = ''}>
+        <X size={14} />
+      </button>
+    </div>
   {/if}
 
   {#if !selectedClass}
-    <!-- Empty state -->
     <div class="empty-state">
-      <div class="empty-icon">🗓️</div>
+      <div class="empty-icon">
+        <Calendar size={56} />
+      </div>
       <p class="empty-title">No class selected</p>
       <p class="empty-sub">Pick a class above to view or build its timetable</p>
     </div>
@@ -242,7 +330,7 @@
 
     <!-- ── Hint ── -->
     <div class="tt-hint">
-      <span>💡</span>
+      <Info size={14} />
       <span>Click an empty cell to add a lesson · Drag a lesson to move it</span>
     </div>
 
@@ -251,7 +339,9 @@
       <div class="tt-grid">
 
         <!-- Corner -->
-        <div class="tt-corner"></div>
+        <div class="tt-corner">
+          <Clock size={16} />
+        </div>
 
         <!-- Day headers -->
         {#each DAYS as day}
@@ -276,13 +366,11 @@
             {@const color = slot ? subjectColorMap[slot.subjectId] : null}
 
             {#if period.isBreak}
-              <!-- Break row -->
               <div class="tt-cell break-cell">
-                {period.label}
+                <span>{period.label}</span>
               </div>
 
             {:else if slot}
-              <!-- Filled cell -->
               <div
                 class="tt-cell filled-cell"
                 style="background:{color?.bg}; border-color:{color?.border};"
@@ -291,31 +379,42 @@
                 ondragend={onDragEnd}
                 role="button"
                 tabindex="0"
-                aria-label="{slot.subject.name} — {slot.startTime} to {slot.endTime}"
               >
-                <div class="slot-subject" style="color:{color?.text}">{slot.subject.name}</div>
-                <div class="slot-teacher">{slot.teacher.firstName} {slot.teacher.lastName}</div>
+                <div class="slot-subject" style="color:{color?.text}">
+                  <BookOpen size={12} />
+                  <span>{slot.subject.name}</span>
+                </div>
+                <div class="slot-teacher">
+                  <User size={10} />
+                  <span>{slot.teacher.firstName} {slot.teacher.lastName}</span>
+                </div>
                 {#if slot.room}
-                  <div class="slot-room">🚪 {slot.room}</div>
+                  <div class="slot-room">
+                    <DoorOpen size={10} />
+                    <span>{slot.room}</span>
+                  </div>
                 {/if}
-                <button
-                  class="slot-delete"
-                  onclick={(e) => {
-                    e.stopPropagation();
-                    deleteSlot(slot.id);
-                  }}
-                  aria-label="Remove slot"
-                  disabled={deletingId === slot.id}
-                >
-                  {deletingId === slot.id ? '…' : '✕'}
-                </button>
-
-                <!-- Drag handle indicator -->
-                <div class="drag-handle" title="Drag to move">⠿</div>
+               <button
+  class="slot-delete"
+  onclick={(e) => {
+    e.stopPropagation();
+    deleteSlot(slot.id);
+  }}
+  aria-label="Remove slot"
+  disabled={deletingId === slot.id}
+>
+  {#if deletingId === slot.id}
+    <span class="loading-dots">…</span>
+  {:else}
+    <Trash2 size={12} />
+  {/if}
+</button>
+                <div class="drag-handle" title="Drag to move">
+                  <GripVertical size={12} />
+                </div>
               </div>
 
             {:else}
-              <!-- Empty cell — drop target + click to add -->
               <div
                 class="tt-cell empty-cell {isTarget ? 'drag-target' : ''}"
                 ondragover={e => onDragOver(e, day, period)}
@@ -325,9 +424,10 @@
                 role="button"
                 tabindex="0"
                 onkeydown={e => e.key === 'Enter' && openPanel(day, period)}
-                aria-label="Add lesson {day} {period.start}"
               >
-                <span class="add-icon">+</span>
+                <span class="add-icon">
+                  <Plus size={20} />
+                </span>
               </div>
             {/if}
           {/each}
@@ -345,9 +445,13 @@
     <div class="panel-header">
       <div>
         <h2 class="panel-title">Add Lesson</h2>
-        <p class="panel-sub">{panelDay.charAt(0) + panelDay.slice(1).toLowerCase()} · {panelSlot}</p>
+        <p class="panel-sub">
+          {panelDay.charAt(0) + panelDay.slice(1).toLowerCase()} · {panelSlot}
+        </p>
       </div>
-      <button onclick={closePanel} class="panel-close">✕</button>
+      <button onclick={closePanel} class="panel-close">
+        <X size={18} />
+      </button>
     </div>
 
     <form
@@ -369,14 +473,13 @@
         <select name="subjectId" required bind:value={pSubject} class="panel-select">
           <option value="">Choose subject…</option>
           {#each data.subjects as sub}
-            {@const color = subjectColorMap[sub.id]}
             <option value={sub.id}>{sub.name}</option>
           {/each}
         </select>
-        <!-- Subject color preview -->
         {#if pSubject}
           {@const color = subjectColorMap[pSubject]}
           <div class="subject-preview" style="background:{color.bg}; color:{color.text}; border-color:{color.border}">
+            <BookOpen size={12} />
             {subjectName(pSubject)}
           </div>
         {/if}
@@ -393,30 +496,52 @@
       </div>
 
       <div class="panel-field">
-        <label class="panel-label">Room <span class="optional">(optional)</span></label>
-        <input name="room" bind:value={pRoom} placeholder="e.g. Room 12, Science Lab…" class="panel-input" />
+        <label class="panel-label">
+          Room
+          <span class="optional">(optional)</span>
+        </label>
+        <div class="room-input-wrapper">
+          <MapPin size={14} class="room-icon" />
+          <input 
+            name="room" 
+            bind:value={pRoom} 
+            placeholder="e.g. Room 12, Science Lab…" 
+            class="panel-input room-input" 
+          />
+        </div>
       </div>
 
       <div class="panel-field period-preview">
         <div class="preview-row">
-          <span class="preview-key">Day</span>
+          <span class="preview-key">
+            <Calendar size={12} />
+            Day
+          </span>
           <span class="preview-val">{panelDay.charAt(0) + panelDay.slice(1).toLowerCase()}</span>
         </div>
         <div class="preview-row">
-          <span class="preview-key">Period</span>
+          <span class="preview-key">
+            <Clock size={12} />
+            Period
+          </span>
           <span class="preview-val">{PERIODS.find(p => p.start === panelSlot)?.label}</span>
         </div>
         <div class="preview-row">
-          <span class="preview-key">Time</span>
+          <span class="preview-key">
+            <Clock size={12} />
+            Time
+          </span>
           <span class="preview-val">{panelSlot} – {PERIODS.find(p => p.start === panelSlot)?.end}</span>
         </div>
       </div>
 
       <button type="submit" disabled={saving} class="panel-submit">
         {#if saving}
-          <span class="btn-spinner"></span> Adding…
+          <span class="btn-spinner"></span>
+          Adding...
         {:else}
-          + Add to Timetable
+          <Plus size={16} />
+          Add to Timetable
         {/if}
       </button>
     </form>
@@ -449,20 +574,137 @@
 
   .tt-header-right { display: flex; align-items: center; gap: 0.75rem; }
 
-  .class-select {
+  /* Custom Dropdown Styles */
+  .custom-dropdown {
+    position: relative;
+    min-width: 220px;
+  }
+
+  .dropdown-trigger {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     padding: 0.5rem 0.875rem;
+    background: white;
     border: 1px solid #e2e8f0;
     border-radius: 0.5rem;
-    background: white;
     font-size: 0.875rem;
     color: #0f172a;
     cursor: pointer;
-    min-width: 180px;
+    transition: all 0.15s ease;
+    min-width: 200px;
   }
-  .class-select:focus {
-    outline: none;
+
+  .dropdown-trigger:hover {
+    border-color: #94a3b8;
+  }
+
+  .custom-dropdown.open .dropdown-trigger {
     border-color: #3b82f6;
     box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+  }
+
+  .dropdown-school-icon {
+    flex-shrink: 0;
+    color: #64748b;
+  }
+
+  .dropdown-value {
+    flex: 1;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dropdown-icon {
+    flex-shrink: 0;
+    color: #94a3b8;
+    transition: transform 0.15s ease;
+  }
+
+  .custom-dropdown.open .dropdown-icon {
+    transform: rotate(180deg);
+  }
+
+  .dropdown-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #94a3b8;
+    transition: color 0.15s ease;
+  }
+
+  .dropdown-clear:hover {
+    color: #ef4444;
+  }
+
+  .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 0.25rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    z-index: 50;
+    overflow: hidden;
+  }
+
+  .dropdown-search {
+    padding: 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #94a3b8;
+  }
+
+  .dropdown-search input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 0.875rem;
+    background: transparent;
+  }
+
+  .dropdown-search input::placeholder {
+    color: #cbd5e1;
+  }
+
+  .dropdown-options {
+    max-height: 240px;
+    overflow-y: auto;
+  }
+
+  .dropdown-option {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: #0f172a;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .dropdown-option:hover {
+    background: #f1f5f9;
+  }
+
+  .dropdown-option.selected {
+    background: #eff6ff;
+    color: #2563eb;
+  }
+
+  .dropdown-empty {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: #94a3b8;
+    text-align: center;
   }
 
   .tt-error {
@@ -476,9 +718,14 @@
     color: #991b1b;
     font-size: 0.875rem;
   }
+  .tt-error-content {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
   .tt-error button {
     background: none; border: none; cursor: pointer;
-    color: #991b1b; font-size: 1rem; line-height: 1;
+    color: #991b1b; display: flex; align-items: center; justify-content: center;
   }
 
   /* ── Empty state ── */
@@ -491,7 +738,10 @@
     padding: 4rem 1rem;
     text-align: center;
   }
-  .empty-icon { font-size: 3.5rem; margin-bottom: 1rem; }
+  .empty-icon { 
+    color: #cbd5e1;
+    margin-bottom: 1rem; 
+  }
   .empty-title { font-size: 1.125rem; font-weight: 600; color: #0f172a; margin-bottom: 0.375rem; }
   .empty-sub { font-size: 0.875rem; color: #94a3b8; }
 
@@ -540,14 +790,17 @@
     min-width: 700px;
   }
 
-  /* Corner cell */
   .tt-corner {
     background: #f8fafc;
     border-bottom: 1px solid #e2e8f0;
     border-right: 1px solid #e2e8f0;
+    padding: 0.75rem 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
   }
 
-  /* Day headers */
   .tt-day-header {
     background: #f8fafc;
     border-bottom: 1px solid #e2e8f0;
@@ -566,7 +819,6 @@
     .day-short { display: inline; }
   }
 
-  /* Period label */
   .tt-period-label {
     background: #f8fafc;
     border-bottom: 1px solid #e2e8f0;
@@ -591,7 +843,6 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Cells */
   .tt-cell {
     border-bottom: 1px solid #e2e8f0;
     border-right: 1px solid #e2e8f0;
@@ -600,7 +851,6 @@
   }
   .tt-cell:last-child { border-right: none; }
 
-  /* Break cell */
   .break-cell {
     background: #fefce8;
     display: flex;
@@ -613,7 +863,6 @@
     text-transform: uppercase;
   }
 
-  /* Empty cell */
   .empty-cell {
     display: flex;
     align-items: center;
@@ -627,14 +876,12 @@
     border: 2px dashed #3b82f6;
   }
   .add-icon {
-    font-size: 1.25rem;
     color: #cbd5e1;
     line-height: 1;
     transition: color 150ms, transform 150ms;
   }
   .empty-cell:hover .add-icon { color: #3b82f6; transform: scale(1.2); }
 
-  /* Filled cell */
   .filled-cell {
     padding: 0.5rem 0.625rem;
     border: 1.5px solid;
@@ -650,11 +897,18 @@
   .filled-cell:active { cursor: grabbing; }
 
   .slot-subject {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
     font-size: 0.8rem;
     font-weight: 700;
     line-height: 1.3;
+    margin-bottom: 0.25rem;
   }
   .slot-teacher {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
     font-size: 0.7rem;
     opacity: 0.75;
     margin-top: 2px;
@@ -663,6 +917,9 @@
     text-overflow: ellipsis;
   }
   .slot-room {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
     font-size: 0.65rem;
     opacity: 0.65;
     margin-top: 2px;
@@ -671,17 +928,15 @@
   .slot-delete {
     position: absolute;
     top: 4px; right: 4px;
-    width: 18px; height: 18px;
+    width: 20px; height: 20px;
     border-radius: 50%;
     border: none;
     background: rgba(0,0,0,0.12);
     color: inherit;
-    font-size: 0.6rem;
     cursor: pointer;
     display: none;
     align-items: center;
     justify-content: center;
-    line-height: 1;
     transition: background 150ms;
   }
   .slot-delete:hover { background: rgba(239,68,68,0.3); }
@@ -690,7 +945,6 @@
   .drag-handle {
     position: absolute;
     bottom: 4px; right: 4px;
-    font-size: 0.7rem;
     opacity: 0.3;
     pointer-events: none;
   }
@@ -739,7 +993,6 @@
     width: 32px; height: 32px;
     border: none; background: #f1f5f9;
     border-radius: 0.5rem; cursor: pointer;
-    font-size: 0.875rem; color: #64748b;
     display: flex; align-items: center; justify-content: center;
     transition: background 150ms;
   }
@@ -761,6 +1014,21 @@
     color: #475569;
   }
   .optional { font-weight: 400; color: #94a3b8; }
+
+  .room-input-wrapper {
+    position: relative;
+  }
+  .room-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    pointer-events: none;
+  }
+  .room-input {
+    padding-left: 2.25rem !important;
+  }
 
   .panel-select, .panel-input {
     width: 100%;
@@ -785,9 +1053,11 @@
     border: 1px solid;
     font-size: 0.8rem;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
   }
 
-  /* Period info preview */
   .period-preview {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
@@ -798,11 +1068,18 @@
   .preview-row {
     display: flex;
     justify-content: space-between;
-    padding: 0.25rem 0;
+    align-items: center;
+    padding: 0.375rem 0;
     border-bottom: 1px solid #f1f5f9;
   }
   .preview-row:last-child { border-bottom: none; }
-  .preview-key { font-size: 0.75rem; color: #94a3b8; }
+  .preview-key { 
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.75rem; 
+    color: #94a3b8; 
+  }
   .preview-val { font-size: 0.75rem; font-weight: 600; color: #334155; }
 
   .panel-submit {
@@ -834,4 +1111,96 @@
     display: inline-block;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Dark Mode */
+  @media (prefers-color-scheme: dark) {
+    .tt-title {
+      color: #f8fafc;
+    }
+
+    .dropdown-trigger {
+      background: #1e293b;
+      border-color: #475569;
+      color: #f8fafc;
+    }
+
+    .dropdown-menu {
+      background: #1e293b;
+      border-color: #475569;
+    }
+
+    .dropdown-search {
+      border-bottom-color: #475569;
+    }
+
+    .dropdown-search input {
+      color: #f8fafc;
+    }
+
+    .dropdown-option {
+      color: #cbd5e1;
+    }
+
+    .dropdown-option:hover {
+      background: #334155;
+    }
+
+    .dropdown-option.selected {
+      background: #1e2d4a;
+      color: #93c5fd;
+    }
+
+    .tt-grid-wrap {
+      background: #1e293b;
+      border-color: #334155;
+    }
+
+    .tt-corner,
+    .tt-day-header,
+    .tt-period-label {
+      background: #0f172a;
+      border-color: #334155;
+      color: #94a3b8;
+    }
+
+    .tt-cell {
+      border-color: #334155;
+    }
+
+    .empty-cell:hover {
+      background: #1e293b;
+    }
+
+    .filled-cell {
+      background: #1e293b;
+    }
+
+    .panel {
+      background: #1e293b;
+    }
+
+    .panel-header {
+      border-bottom-color: #334155;
+    }
+
+    .panel-title {
+      color: #f8fafc;
+    }
+
+    .panel-select,
+    .panel-input {
+      background: #0f172a;
+      border-color: #475569;
+      color: #f8fafc;
+    }
+
+    .period-preview {
+      background: #0f172a;
+      border-color: #334155;
+    }
+
+    .preview-val {
+      color: #f8fafc;
+    }
+  }
 </style>
