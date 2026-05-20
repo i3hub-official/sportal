@@ -5,730 +5,947 @@
   import { page } from '$app/stores';
   import type { PageData, ActionData } from './$types';
   import { 
-    Calendar, Clock, Plus, X, Trash2, BookOpen, 
-    User, Users, GraduationCap, AlertCircle, Check,
-    ChevronRight, ChevronLeft, Edit2, Save
+    Calendar, Clock, BookOpen, User, MapPin, X, Plus, 
+    GripVertical, AlertCircle, Info, ChevronDown, ChevronRight,
+    Trash2, Move, DoorOpen, GraduationCap, Users
   } from 'lucide-svelte';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
-  let showAdd = $state(false);
-  const days = ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY'];
-  const dayAbbr: Record<string, string> = {
-    'MONDAY': 'MON',
-    'TUESDAY': 'TUE',
-    'WEDNESDAY': 'WED',
-    'THURSDAY': 'THU',
-    'FRIDAY': 'FRI'
+  // ── State ────────────────────────────────────────────────────────────────────
+  let selectedClass = $state(data.selectedClassId ?? '');
+  let showPanel     = $state(false);
+  let panelDay      = $state('');
+  let panelSlot     = $state<string | null>(null); // period key e.g. "08:00"
+  let saving        = $state(false);
+  let deletingId    = $state<string | null>(null);
+  let dragSlot      = $state<any>(null);
+  let dragOver      = $state<{ day: string; period: string } | null>(null);
+  let error         = $state('');
+
+  // ── Panel form fields ────────────────────────────────────────────────────────
+  let pSubject = $state('');
+  let pTeacher = $state('');
+  let pRoom    = $state('');
+
+  // ── Config ───────────────────────────────────────────────────────────────────
+  const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
+  const DAY_SHORT: Record<string, string> = {
+    MONDAY: 'Mon', TUESDAY: 'Tue', WEDNESDAY: 'Wed', THURSDAY: 'Thu', FRIDAY: 'Fri'
   };
 
+  // School periods — 8 periods per day
+  const PERIODS = [
+    { label: '1st Period', start: '08:00', end: '08:40' },
+    { label: '2nd Period', start: '08:40', end: '09:20' },
+    { label: 'Break',      start: '09:20', end: '09:40', isBreak: true },
+    { label: '3rd Period', start: '09:40', end: '10:20' },
+    { label: '4th Period', start: '10:20', end: '11:00' },
+    { label: 'Lunch',      start: '11:00', end: '11:30', isBreak: true },
+    { label: '5th Period', start: '11:30', end: '12:10' },
+    { label: '6th Period', start: '12:10', end: '12:50' },
+    { label: '7th Period', start: '12:50', end: '13:30' },
+    { label: '8th Period', start: '13:30', end: '14:10' },
+  ];
+
+  // Subject color palette — assigned per subject index
+  const COLORS = [
+    { bg: '#e0f2fe', text: '#0369a1', border: '#7dd3fc' }, // sky
+    { bg: '#d1fae5', text: '#065f46', border: '#6ee7b7' }, // emerald
+    { bg: '#fce7f3', text: '#9d174d', border: '#f9a8d4' }, // pink
+    { bg: '#fef3c7', text: '#92400e', border: '#fcd34d' }, // amber
+    { bg: '#ede9fe', text: '#5b21b6', border: '#c4b5fd' }, // violet
+    { bg: '#fee2e2', text: '#991b1b', border: '#fca5a5' }, // red
+    { bg: '#cffafe', text: '#164e63', border: '#67e8f9' }, // cyan
+    { bg: '#dcfce7', text: '#14532d', border: '#86efac' }, // green
+    { bg: '#fef9c3', text: '#713f12', border: '#fde047' }, // yellow
+    { bg: '#f3e8ff', text: '#6b21a8', border: '#d8b4fe' }, // purple
+    { bg: '#ffedd5', text: '#7c2d12', border: '#fdba74' }, // orange
+    { bg: '#f0fdf4', text: '#15803d', border: '#4ade80' }, // lime
+  ];
+
+  // Map subjectId → color
+  const subjectColorMap = $derived(
+    data.subjects.reduce((acc, s, i) => {
+      acc[s.id] = COLORS[i % COLORS.length];
+      return acc;
+    }, {} as Record<string, typeof COLORS[0]>)
+  );
+
+  // ── Slot lookup: day+startTime → slot ────────────────────────────────────────
+  const slotMap = $derived(
+    data.slots.reduce((acc, slot) => {
+      const key = `${slot.dayOfWeek}::${slot.startTime}`;
+      acc[key] = slot;
+      return acc;
+    }, {} as Record<string, any>)
+  );
+
+  // ── Class change ─────────────────────────────────────────────────────────────
   function changeClass(e: Event) {
-    const classId = (e.target as HTMLSelectElement).value;
-    goto(`?class=${classId}`);
+    selectedClass = (e.target as HTMLSelectElement).value;
+    goto(`?class=${selectedClass}`, { replaceState: true });
+    showPanel = false;
   }
 
-  const slotsByDay = $derived(
-    days.reduce((acc, day) => {
-      acc[day] = data.slots.filter((s: any) => s.dayOfWeek === day);
-      return acc;
-    }, {} as Record<string, any[]>)
-  );
+  // ── Open add panel ───────────────────────────────────────────────────────────
+  function openPanel(day: string, period: typeof PERIODS[0]) {
+    if (period.isBreak) return;
+    const existing = slotMap[`${day}::${period.start}`];
+    if (existing) return; // cell occupied
+    panelDay  = day;
+    panelSlot = period.start;
+    pSubject  = '';
+    pTeacher  = '';
+    pRoom     = '';
+    error     = '';
+    showPanel = true;
+  }
 
-  const selectedClassName = $derived(
-    data.classes.find(c => c.id === data.selectedClassId)?.name || ''
-  );
+  function closePanel() { showPanel = false; }
+
+  // ── Drag & Drop ──────────────────────────────────────────────────────────────
+  function onDragStart(e: DragEvent, slot: any) {
+    dragSlot = slot;
+    (e.target as HTMLElement).style.opacity = '0.4';
+  }
+
+  function onDragEnd(e: DragEvent) {
+    (e.target as HTMLElement).style.opacity = '1';
+    dragOver = null;
+  }
+
+  function onDragOver(e: DragEvent, day: string, period: typeof PERIODS[0]) {
+    if (period.isBreak) return;
+    e.preventDefault();
+    dragOver = { day, period: period.start };
+  }
+
+  function onDragLeave() { dragOver = null; }
+
+  async function onDrop(e: DragEvent, day: string, period: typeof PERIODS[0]) {
+    e.preventDefault();
+    dragOver = null;
+    if (!dragSlot || period.isBreak) return;
+    if (dragSlot.dayOfWeek === day && dragSlot.startTime === period.start) return;
+
+    // Check target is free
+    const target = slotMap[`${day}::${period.start}`];
+    if (target) { error = 'That slot is already occupied'; return; }
+
+    // Calculate new end time based on original duration
+    const [sh, sm] = dragSlot.startTime.split(':').map(Number);
+    const [eh, em] = dragSlot.endTime.split(':').map(Number);
+    const duration = (eh * 60 + em) - (sh * 60 + sm);
+    const [nh, nm] = period.start.split(':').map(Number);
+    const newEndMin = nh * 60 + nm + duration;
+    const newEnd = `${String(Math.floor(newEndMin / 60)).padStart(2, '0')}:${String(newEndMin % 60).padStart(2, '0')}`;
+
+    // POST to moveSlot action
+    const fd = new FormData();
+    fd.append('slotId',    dragSlot.id);
+    fd.append('dayOfWeek', day);
+    fd.append('startTime', period.start);
+    fd.append('endTime',   newEnd);
+
+    const res = await fetch(`?/moveSlot`, { method: 'POST', body: fd });
+    if (res.ok) goto(`?class=${selectedClass}`, { replaceState: true, invalidateAll: true });
+    else error = 'Failed to move slot';
+
+    dragSlot = null;
+  }
+
+  // ── Delete ───────────────────────────────────────────────────────────────────
+  let deleteForm: HTMLFormElement;
+  let deleteSlotId = $state('');
+
+  async function deleteSlot(slotId: string) {
+    if (!confirm('Remove this slot?')) return;
+    deletingId  = slotId;
+    deleteSlotId = slotId;
+    await new Promise(r => setTimeout(r, 50));
+    deleteForm.submit();
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+  function subjectName(id: string) {
+    return data.subjects.find(s => s.id === id)?.name ?? '—';
+  }
+  function teacherName(id: string) {
+    const t = data.staff.find(s => s.id === id);
+    return t ? `${t.firstName} ${t.lastName}` : '—';
+  }
+
+  const totalSlots = $derived(data.slots.length);
+  const className  = $derived(data.classes.find(c => c.id === selectedClass)?.name ?? '');
+
+  $effect(() => {
+    if (form?.error) error = form.error;
+    if (form?.success) { showPanel = false; error = ''; }
+  });
 </script>
 
-<svelte:head>
-  <title>Timetable — SMS</title>
-</svelte:head>
+<svelte:head><title>Timetable — SMS</title></svelte:head>
 
-<div class="timetable-container">
-  <div class="timetable-wrapper">
-    <div class="page-header">
-      <div class="header-title-section">
-        <div class="title-icon">
-          <Calendar size={24} />
-        </div>
-        <div>
-          <h1 class="page-title">Timetable</h1>
-          <p class="page-subtitle">Class schedule management</p>
-        </div>
+<!-- Hidden delete form -->
+<form bind:this={deleteForm} method="POST" action="?/deleteSlot" style="display:none">
+  <input type="hidden" name="slotId" bind:value={deleteSlotId} />
+</form>
+
+<div class="tt-page">
+
+  <!-- ── Header ── -->
+  <div class="tt-header">
+    <div>
+      <h1 class="tt-title">Timetable</h1>
+      <p class="tt-sub">
+        {#if selectedClass && className}
+          {className} · {totalSlots} slot{totalSlots !== 1 ? 's' : ''}
+        {:else}
+          Select a class to build its schedule
+        {/if}
+      </p>
+    </div>
+
+    <div class="tt-header-right">
+      <!-- Class selector -->
+      <select onchange={changeClass} class="class-select">
+        <option value="">Choose class…</option>
+        {#each data.classes as cls}
+          <option value={cls.id} selected={cls.id === selectedClass}>{cls.name}</option>
+        {/each}
+      </select>
+    </div>
+  </div>
+
+  {#if error}
+    <div class="tt-error">
+      <div class="tt-error-content">
+        <AlertCircle size={16} />
+        <span>{error}</span>
       </div>
-      {#if data.selectedClassId}
-        <button onclick={() => showAdd = !showAdd} class="add-slot-btn">
-          {#if showAdd}
-            <X size={16} />
-            Cancel
-          {:else}
-            <Plus size={16} />
-            Add Slot
-          {/if}
-        </button>
+      <button onclick={() => error = ''}>
+        <X size={14} />
+      </button>
+    </div>
+  {/if}
+
+  {#if !selectedClass}
+    <!-- Empty state -->
+    <div class="empty-state">
+      <div class="empty-icon">
+        <Calendar size={56} />
+      </div>
+      <p class="empty-title">No class selected</p>
+      <p class="empty-sub">Pick a class above to view or build its timetable</p>
+    </div>
+
+  {:else}
+    <!-- ── Legend ── -->
+    <div class="legend">
+      <span class="legend-label">Subjects:</span>
+      {#each data.subjects.slice(0, 8) as sub}
+        {@const color = subjectColorMap[sub.id]}
+        <span class="legend-chip" style="background:{color.bg}; color:{color.text}; border-color:{color.border}">
+          {sub.name}
+        </span>
+      {/each}
+      {#if data.subjects.length > 8}
+        <span class="legend-more">+{data.subjects.length - 8} more</span>
       {/if}
     </div>
 
-    {#if form?.error}
-      <div class="error-alert">
-        <AlertCircle size={16} />
-        {form.error}
-      </div>
-    {/if}
+    <!-- ── Hint ── -->
+    <div class="tt-hint">
+      <Info size={14} />
+      <span>Click an empty cell to add a lesson · Drag a lesson to move it</span>
+    </div>
 
-    {#if form?.success}
-      <div class="success-alert">
-        <Check size={16} />
-        {form.success}
-      </div>
-    {/if}
+    <!-- ── Grid ── -->
+    <div class="tt-grid-wrap">
+      <div class="tt-grid">
 
-    <div class="class-selector-card">
-      <div class="card-body">
-        <label class="selector-label">
-          <GraduationCap size={16} />
-          Select Class
-        </label>
-        <select onchange={changeClass} class="class-select">
-          <option value="">Choose class…</option>
-          {#each data.classes as cls}
-            <option value={cls.id} selected={cls.id === data.selectedClassId}>
-              {cls.name}
-            </option>
+        <!-- Corner -->
+        <div class="tt-corner">
+          <Clock size={16} />
+        </div>
+
+        <!-- Day headers -->
+        {#each DAYS as day}
+          <div class="tt-day-header">
+            <span class="day-full">{day.charAt(0) + day.slice(1).toLowerCase()}</span>
+            <span class="day-short">{DAY_SHORT[day]}</span>
+          </div>
+        {/each}
+
+        <!-- Rows: one per period -->
+        {#each PERIODS as period (period.start)}
+          <!-- Period label -->
+          <div class="tt-period-label {period.isBreak ? 'is-break' : ''}">
+            <span class="period-name">
+              {#if period.isBreak}
+                {period.label}
+              {:else}
+                {period.label}
+              {/if}
+            </span>
+            <span class="period-time">{period.start}–{period.end}</span>
+          </div>
+
+          <!-- Cells: one per day -->
+          {#each DAYS as day (day)}
+            {@const slot = slotMap[`${day}::${period.start}`]}
+            {@const isTarget = dragOver?.day === day && dragOver?.period === period.start}
+            {@const color = slot ? subjectColorMap[slot.subjectId] : null}
+
+            {#if period.isBreak}
+              <!-- Break row -->
+              <div class="tt-cell break-cell">
+                <span>{period.label}</span>
+              </div>
+
+            {:else if slot}
+              <!-- Filled cell -->
+              <div
+                class="tt-cell filled-cell"
+                style="background:{color?.bg}; border-color:{color?.border};"
+                draggable="true"
+                ondragstart={e => onDragStart(e, slot)}
+                ondragend={onDragEnd}
+                role="button"
+                tabindex="0"
+                aria-label="{slot.subject.name} — {slot.startTime} to {slot.endTime}"
+              >
+                <div class="slot-subject" style="color:{color?.text}">
+                  <BookOpen size={12} />
+                  <span>{slot.subject.name}</span>
+                </div>
+                <div class="slot-teacher">
+                  <User size={10} />
+                  <span>{slot.teacher.firstName} {slot.teacher.lastName}</span>
+                </div>
+                {#if slot.room}
+                  <div class="slot-room">
+                    <DoorOpen size={10} />
+                    <span>{slot.room}</span>
+                  </div>
+                {/if}
+                <button
+                  class="slot-delete"
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    deleteSlot(slot.id);
+                  }}
+                  aria-label="Remove slot"
+                  disabled={deletingId === slot.id}
+                >
+                  {#if deletingId === slot.id}
+                    …
+                  {:else}
+                    <Trash2 size={12} />
+                  {/if}
+                </button>
+
+                <!-- Drag handle indicator -->
+                <div class="drag-handle" title="Drag to move">
+                  <GripVertical size={12} />
+                </div>
+              </div>
+
+            {:else}
+              <!-- Empty cell — drop target + click to add -->
+              <div
+                class="tt-cell empty-cell {isTarget ? 'drag-target' : ''}"
+                ondragover={e => onDragOver(e, day, period)}
+                ondragleave={onDragLeave}
+                ondrop={e => onDrop(e, day, period)}
+                onclick={() => openPanel(day, period)}
+                role="button"
+                tabindex="0"
+                onkeydown={e => e.key === 'Enter' && openPanel(day, period)}
+                aria-label="Add lesson {day} {period.start}"
+              >
+                <span class="add-icon">
+                  <Plus size={20} />
+                </span>
+              </div>
+            {/if}
+          {/each}
+        {/each}
+      </div>
+    </div>
+  {/if}
+</div>
+
+<!-- ── Add Lesson Side Panel ── -->
+{#if showPanel}
+  <div class="panel-backdrop" onclick={closePanel} role="button" tabindex="-1"></div>
+
+  <div class="panel" role="dialog" aria-modal="true" aria-label="Add lesson">
+    <div class="panel-header">
+      <div>
+        <h2 class="panel-title">Add Lesson</h2>
+        <p class="panel-sub">
+          {panelDay.charAt(0) + panelDay.slice(1).toLowerCase()} · {panelSlot}
+        </p>
+      </div>
+      <button onclick={closePanel} class="panel-close">
+        <X size={18} />
+      </button>
+    </div>
+
+    <form
+      method="POST"
+      action="?/addSlot"
+      use:enhance={() => {
+        saving = true;
+        return async ({ update }) => { saving = false; update(); };
+      }}
+      class="panel-form"
+    >
+      <input type="hidden" name="classId"   value={selectedClass} />
+      <input type="hidden" name="dayOfWeek" value={panelDay} />
+      <input type="hidden" name="startTime" value={panelSlot ?? ''} />
+      <input type="hidden" name="endTime"   value={PERIODS.find(p => p.start === panelSlot)?.end ?? ''} />
+
+      <div class="panel-field">
+        <label class="panel-label">Subject *</label>
+        <select name="subjectId" required bind:value={pSubject} class="panel-select">
+          <option value="">Choose subject…</option>
+          {#each data.subjects as sub}
+            <option value={sub.id}>{sub.name}</option>
           {/each}
         </select>
-        {#if data.selectedClassId}
-          <div class="selected-class-badge">
+        <!-- Subject color preview -->
+        {#if pSubject}
+          {@const color = subjectColorMap[pSubject]}
+          <div class="subject-preview" style="background:{color.bg}; color:{color.text}; border-color:{color.border}">
             <BookOpen size={12} />
-            {selectedClassName}
+            {subjectName(pSubject)}
           </div>
         {/if}
       </div>
-    </div>
 
-    {#if showAdd && data.selectedClassId}
-      <div class="add-slot-card">
-        <div class="card-header">
-          <Clock size={18} />
-          <h3>Add Timetable Slot</h3>
-        </div>
-        <div class="card-body">
-          <form method="POST" action="?/addSlot" use:enhance class="add-slot-form">
-            <input type="hidden" name="classId" value={data.selectedClassId} />
-            
-            <div class="form-group">
-              <label class="form-label">Day</label>
-              <select name="dayOfWeek" required class="form-input">
-                {#each days as d}
-                  <option value={d}>{d.charAt(0) + d.slice(1).toLowerCase()}</option>
-                {/each}
-              </select>
-            </div>
-            
-            <div class="form-group">
-              <label class="form-label">Subject</label>
-              <select name="subjectId" required class="form-input">
-                <option value="">Select…</option>
-                {#each data.subjects as s}
-                  <option value={s.id}>{s.name}</option>
-                {/each}
-              </select>
-            </div>
-            
-            <div class="form-group">
-              <label class="form-label">Teacher</label>
-              <select name="teacherId" required class="form-input">
-                <option value="">Select…</option>
-                {#each data.staff as s}
-                  <option value={s.id}>{s.firstName} {s.lastName}</option>
-                {/each}
-              </select>
-            </div>
-            
-            <div class="form-group">
-              <label class="form-label">Start Time</label>
-              <input type="time" name="startTime" required class="form-input" />
-            </div>
-            
-            <div class="form-group">
-              <label class="form-label">End Time</label>
-              <input type="time" name="endTime" required class="form-input" />
-            </div>
-            
-            <button type="submit" class="submit-slot-btn">
-              <Plus size={16} />
-              Add Slot
-            </button>
-          </form>
-        </div>
+      <div class="panel-field">
+        <label class="panel-label">Teacher *</label>
+        <select name="teacherId" required bind:value={pTeacher} class="panel-select">
+          <option value="">Choose teacher…</option>
+          {#each data.staff as s}
+            <option value={s.id}>{s.firstName} {s.lastName} — {s.staffRole?.replace('_', ' ') ?? ''}</option>
+          {/each}
+        </select>
       </div>
-    {/if}
 
-    {#if data.selectedClassId}
-      <div class="timetable-grid">
-        {#each days as day}
-          <div class="day-column">
-            <div class="day-header">
-              <span class="day-name">{day.slice(0, 3)}</span>
-              <span class="day-full">{day.charAt(0) + day.slice(1).toLowerCase()}</span>
-            </div>
-            <div class="slots-container">
-              {#each slotsByDay[day] as slot}
-                <div class="slot-card">
-                  <div class="slot-subject">
-                    <BookOpen size={12} />
-                    <span class="subject-name">{slot.subject.name}</span>
-                  </div>
-                  <div class="slot-time">
-                    <Clock size={10} />
-                    <span>{slot.startTime} – {slot.endTime}</span>
-                  </div>
-                  <div class="slot-teacher">
-                    <User size={10} />
-                    <span>{slot.teacher.firstName} {slot.teacher.lastName}</span>
-                  </div>
-                  <form method="POST" action="?/deleteSlot" use:enhance class="remove-form">
-                    <input type="hidden" name="slotId" value={slot.id} />
-                    <button type="submit" class="remove-btn">
-                      <Trash2 size={12} />
-                      Remove
-                    </button>
-                  </form>
-                </div>
-              {:else}
-                <div class="empty-slot">
-                  <Clock size={24} />
-                  <p>No class</p>
-                </div>
-              {/each}
-            </div>
-          </div>
-        {/each}
-      </div>
-    {:else}
-      <div class="empty-state-card">
-        <div class="empty-state-content">
-          <Calendar size={48} class="empty-icon" />
-          <p>Select a class to view its timetable</p>
-          <span class="empty-hint">Choose a class from the dropdown above</span>
+      <div class="panel-field">
+        <label class="panel-label">
+          Room
+          <span class="optional">(optional)</span>
+        </label>
+        <div class="room-input-wrapper">
+          <MapPin size={14} class="room-icon" />
+          <input 
+            name="room" 
+            bind:value={pRoom} 
+            placeholder="e.g. Room 12, Science Lab…" 
+            class="panel-input room-input" 
+          />
         </div>
       </div>
-    {/if}
+
+      <div class="panel-field period-preview">
+        <div class="preview-row">
+          <span class="preview-key">
+            <Calendar size={12} />
+            Day
+          </span>
+          <span class="preview-val">{panelDay.charAt(0) + panelDay.slice(1).toLowerCase()}</span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-key">
+            <Clock size={12} />
+            Period
+          </span>
+          <span class="preview-val">{PERIODS.find(p => p.start === panelSlot)?.label}</span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-key">
+            <Clock size={12} />
+            Time
+          </span>
+          <span class="preview-val">{panelSlot} – {PERIODS.find(p => p.start === panelSlot)?.end}</span>
+        </div>
+      </div>
+
+      <button type="submit" disabled={saving} class="panel-submit">
+        {#if saving}
+          <span class="btn-spinner"></span>
+          Adding...
+        {:else}
+          <Plus size={16} />
+          Add to Timetable
+        {/if}
+      </button>
+    </form>
   </div>
-</div>
+{/if}
 
 <style>
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
-
-  .timetable-container {
-    padding: 1.5rem;
-    min-height: calc(100vh - 4rem);
-    background: #f8fafc;
-  }
-
-  .timetable-wrapper {
-    max-width: 80rem;
-    margin: 0 auto;
-  }
-
-  /* Page Header */
-  .page-header {
+  /* ── Page ── */
+  .tt-page {
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    gap: 1rem;
+    height: 100%;
+  }
+
+  .tt-header {
+    display: flex;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
     flex-wrap: wrap;
-    margin-bottom: 1.5rem;
   }
 
-  .header-title-section {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-
-  .title-icon {
-    width: 2.5rem;
-    height: 2.5rem;
-    background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
-    border-radius: 0.75rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #2563eb;
-  }
-
-  .page-title {
+  .tt-title {
     font-size: 1.5rem;
     font-weight: 700;
     color: #0f172a;
-    margin: 0 0 0.25rem 0;
   }
+  .tt-sub { font-size: 0.875rem; color: #64748b; margin-top: 2px; }
 
-  .page-subtitle {
-    font-size: 0.875rem;
-    color: #64748b;
-    margin: 0;
-  }
-
-  .add-slot-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.625rem 1.25rem;
-    background: #2563eb;
-    color: white;
-    border: none;
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-
-  .add-slot-btn:hover {
-    background: #1d4ed8;
-    transform: translateY(-1px);
-  }
-
-  /* Alerts */
-  .error-alert {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    color: #dc2626;
-    font-size: 0.875rem;
-    border-radius: 0.75rem;
-    padding: 0.75rem 1rem;
-    margin-bottom: 1.25rem;
-  }
-
-  .success-alert {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    background: #ecfdf5;
-    border: 1px solid #a7f3d0;
-    color: #065f46;
-    font-size: 0.875rem;
-    border-radius: 0.75rem;
-    padding: 0.75rem 1rem;
-    margin-bottom: 1.25rem;
-  }
-
-  /* Class Selector Card */
-  .class-selector-card {
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.75rem;
-    margin-bottom: 1.5rem;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  }
-
-  .card-body {
-    padding: 1rem 1.25rem;
-  }
-
-  .selector-label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #475569;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 0.5rem;
-  }
+  .tt-header-right { display: flex; align-items: center; gap: 0.75rem; }
 
   .class-select {
-    width: 100%;
-    max-width: 280px;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid #cbd5e1;
+    padding: 0.5rem 0.875rem;
+    border: 1px solid #e2e8f0;
     border-radius: 0.5rem;
-    font-size: 0.875rem;
     background: white;
+    font-size: 0.875rem;
+    color: #0f172a;
     cursor: pointer;
+    min-width: 180px;
   }
-
   .class-select:focus {
     outline: none;
     border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
   }
 
-  .selected-class-badge {
-    display: inline-flex;
+  .tt-error {
+    display: flex;
     align-items: center;
-    gap: 0.375rem;
-    margin-top: 0.75rem;
-    padding: 0.25rem 0.625rem;
-    background: #eff6ff;
-    color: #1d4ed8;
+    justify-content: space-between;
+    padding: 0.625rem 1rem;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
     border-radius: 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 500;
+    color: #991b1b;
+    font-size: 0.875rem;
   }
-
-  /* Add Slot Card */
-  .add-slot-card {
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.75rem;
-    margin-bottom: 1.5rem;
-    overflow: hidden;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  }
-
-  .card-header {
-    padding: 1rem 1.25rem;
-    border-bottom: 1px solid #f1f5f9;
+  .tt-error-content {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-weight: 600;
-    color: #1e293b;
+  }
+  .tt-error button {
+    background: none; 
+    border: none; 
+    cursor: pointer;
+    color: #991b1b; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  .add-slot-form {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 1rem;
-  }
-
-  .form-group {
+  /* ── Empty state ── */
+  .empty-state {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 0.375rem;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 1rem;
+    text-align: center;
+  }
+  .empty-icon { 
+    color: #cbd5e1;
+    margin-bottom: 1rem; 
+  }
+  .empty-title { font-size: 1.125rem; font-weight: 600; color: #0f172a; margin-bottom: 0.375rem; }
+  .empty-sub { font-size: 0.875rem; color: #94a3b8; }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .legend-label { font-size: 0.75rem; font-weight: 600; color: #64748b; }
+  .legend-chip {
+    font-size: 0.7rem;
+    font-weight: 500;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    border: 1px solid;
+  }
+  .legend-more { font-size: 0.75rem; color: #94a3b8; }
+
+  /* ── Hint ── */
+  .tt-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: #94a3b8;
+    background: #f8fafc;
+    border: 1px dashed #e2e8f0;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.875rem;
   }
 
-  .form-label {
-    font-size: 0.7rem;
-    font-weight: 600;
+  /* ── Grid ── */
+  .tt-grid-wrap {
+    overflow-x: auto;
+    border-radius: 0.75rem;
+    border: 1px solid #e2e8f0;
+    background: white;
+    flex: 1;
+  }
+
+  .tt-grid {
+    display: grid;
+    grid-template-columns: 120px repeat(5, 1fr);
+    min-width: 700px;
+  }
+
+  /* Corner cell */
+  .tt-corner {
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+    padding: 0.75rem 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+  }
+
+  /* Day headers */
+  .tt-day-header {
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+    padding: 0.75rem 0.5rem;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 700;
     color: #475569;
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
+  .day-short { display: none; }
+  @media (max-width: 900px) {
+    .day-full { display: none; }
+    .day-short { display: inline; }
+  }
 
-  .form-input {
-    width: 100%;
+  /* Period label */
+  .tt-period-label {
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
     padding: 0.5rem 0.75rem;
-    border: 1px solid #cbd5e1;
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
-    transition: all 0.15s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    justify-content: center;
+  }
+  .tt-period-label.is-break {
+    background: #fefce8;
+  }
+  .period-name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #334155;
+  }
+  .period-time {
+    font-size: 0.65rem;
+    color: #94a3b8;
+    font-variant-numeric: tabular-nums;
   }
 
-  .form-input:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  /* Cells */
+  .tt-cell {
+    border-bottom: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+    min-height: 72px;
+    position: relative;
   }
+  .tt-cell:last-child { border-right: none; }
 
-  .submit-slot-btn {
+  /* Break cell */
+  .break-cell {
+    background: #fefce8;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    background: #2563eb;
-    color: white;
-    border: none;
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    height: 2.5rem;
-    align-self: flex-end;
-  }
-
-  .submit-slot-btn:hover {
-    background: #1d4ed8;
-    transform: translateY(-1px);
-  }
-
-  /* Timetable Grid */
-  .timetable-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 1rem;
-  }
-
-  .day-column {
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.75rem;
-    overflow: hidden;
-  }
-
-  .day-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    padding: 0.75rem;
-    text-align: center;
-    color: white;
-  }
-
-  .day-name {
-    display: block;
-    font-size: 1.125rem;
-    font-weight: 700;
-  }
-
-  .day-full {
-    display: block;
     font-size: 0.7rem;
-    opacity: 0.9;
-    margin-top: 0.125rem;
+    color: #a16207;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
   }
 
-  .slots-container {
-    padding: 0.75rem;
+  /* Empty cell */
+  .empty-cell {
     display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    min-height: 400px;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 150ms;
   }
+  .empty-cell:hover { background: #f0f9ff; }
+  .empty-cell.drag-target {
+    background: #dbeafe;
+    border: 2px dashed #3b82f6;
+  }
+  .add-icon {
+    color: #cbd5e1;
+    line-height: 1;
+    transition: color 150ms, transform 150ms;
+  }
+  .empty-cell:hover .add-icon { color: #3b82f6; transform: scale(1.2); }
 
-  .slot-card {
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    border-radius: 0.5rem;
-    padding: 0.5rem;
-    transition: all 0.15s ease;
+  /* Filled cell */
+  .filled-cell {
+    padding: 0.5rem 0.625rem;
+    border: 1.5px solid;
+    cursor: grab;
+    user-select: none;
+    transition: transform 120ms, box-shadow 120ms;
   }
-
-  .slot-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  .filled-cell:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    z-index: 2;
   }
+  .filled-cell:active { cursor: grabbing; }
 
   .slot-subject {
     display: flex;
     align-items: center;
-    gap: 0.375rem;
-    font-weight: 600;
-    color: #1e40af;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    line-height: 1.3;
     margin-bottom: 0.25rem;
   }
-
-  .subject-name {
-    font-size: 0.8125rem;
-  }
-
-  .slot-time {
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-    font-size: 0.7rem;
-    color: #3b82f6;
-    margin-bottom: 0.25rem;
-  }
-
   .slot-teacher {
     display: flex;
     align-items: center;
-    gap: 0.375rem;
+    gap: 0.25rem;
     font-size: 0.7rem;
-    color: #64748b;
-    margin-bottom: 0.5rem;
+    opacity: 0.75;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-
-  .remove-form {
-    margin-top: 0.25rem;
-  }
-
-  .remove-btn {
-    display: inline-flex;
+  .slot-room {
+    display: flex;
     align-items: center;
     gap: 0.25rem;
-    padding: 0.25rem 0.5rem;
-    background: transparent;
-    color: #ef4444;
-    border: none;
-    border-radius: 0.375rem;
     font-size: 0.65rem;
+    opacity: 0.65;
+    margin-top: 2px;
+  }
+
+  .slot-delete {
+    position: absolute;
+    top: 4px; right: 4px;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0,0,0,0.12);
+    color: inherit;
     cursor: pointer;
-    transition: all 0.15s ease;
-  }
-
-  .remove-btn:hover {
-    background: #fef2f2;
-  }
-
-  .empty-slot {
-    display: flex;
-    flex-direction: column;
+    display: none;
     align-items: center;
     justify-content: center;
-    padding: 1.5rem 0.5rem;
-    color: #cbd5e1;
-    text-align: center;
+    transition: background 150ms;
+  }
+  .slot-delete:hover { background: rgba(239,68,68,0.3); }
+  .filled-cell:hover .slot-delete { display: flex; }
+
+  .drag-handle {
+    position: absolute;
+    bottom: 4px; right: 4px;
+    opacity: 0.3;
+    pointer-events: none;
   }
 
-  .empty-slot p {
-    font-size: 0.7rem;
-    margin-top: 0.25rem;
+  /* ── Side Panel ── */
+  .panel-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.25);
+    backdrop-filter: blur(2px);
+    z-index: 39;
   }
 
-  /* Empty State Card */
-  .empty-state-card {
+  .panel {
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: 360px;
+    max-width: 100vw;
     background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.75rem;
-    text-align: center;
-    padding: 3rem;
-  }
-
-  .empty-state-content {
+    box-shadow: -8px 0 40px rgba(0,0,0,0.12);
+    z-index: 40;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
+    animation: slideIn 0.22s cubic-bezier(0.32, 0.72, 0, 1);
   }
 
-  .empty-icon {
-    color: #cbd5e1;
-    margin-bottom: 0.5rem;
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to   { transform: translateX(0);   opacity: 1; }
   }
 
-  .empty-state-content p {
-    color: #64748b;
-    font-size: 0.875rem;
+  .panel-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 1.25rem 1.25rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .panel-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .panel-sub { font-size: 0.8rem; color: #64748b; margin-top: 2px; }
+  .panel-close {
+    width: 32px; height: 32px;
+    border: none; background: #f1f5f9;
+    border-radius: 0.5rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 150ms;
+  }
+  .panel-close:hover { background: #e2e8f0; }
+
+  .panel-form {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.125rem;
   }
 
-  .empty-hint {
-    font-size: 0.75rem;
+  .panel-field { display: flex; flex-direction: column; gap: 0.375rem; }
+  .panel-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #475569;
+  }
+  .optional { font-weight: 400; color: #94a3b8; }
+
+  .room-input-wrapper {
+    position: relative;
+  }
+  .room-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
     color: #94a3b8;
+    pointer-events: none;
+  }
+  .room-input {
+    padding-left: 2.25rem !important;
   }
 
-  /* Responsive Design */
-  @media (max-width: 1024px) {
-    .timetable-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
+  .panel-select, .panel-input {
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    color: #0f172a;
+    background: white;
+    transition: border-color 150ms, box-shadow 150ms;
+  }
+  .panel-select:focus, .panel-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
   }
 
-  @media (max-width: 768px) {
-    .timetable-container {
-      padding: 1rem;
-    }
-
-    .page-title {
-      font-size: 1.25rem;
-    }
-
-    .title-icon {
-      width: 2rem;
-      height: 2rem;
-    }
-
-    .timetable-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .add-slot-form {
-      grid-template-columns: 1fr;
-    }
-
-    .submit-slot-btn {
-      width: 100%;
-    }
+  .subject-preview {
+    margin-top: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+    border: 1px solid;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
   }
 
-  /* Dark Mode */
-  @media (prefers-color-scheme: dark) {
-    .timetable-container {
-      background: #0f172a;
-    }
-
-    .page-title {
-      color: #f8fafc;
-    }
-
-    .title-icon {
-      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-    }
-
-    .add-slot-btn {
-      background: #3b82f6;
-    }
-
-    .add-slot-btn:hover {
-      background: #2563eb;
-    }
-
-    .class-selector-card,
-    .add-slot-card,
-    .day-column,
-    .empty-state-card {
-      background: #1e293b;
-      border-color: #334155;
-    }
-
-    .card-header {
-      color: #f8fafc;
-      border-bottom-color: #334155;
-    }
-
-    .class-select {
-      background: #1e293b;
-      border-color: #475569;
-      color: #f8fafc;
-    }
-
-    .class-select:focus {
-      border-color: #3b82f6;
-    }
-
-    .selected-class-badge {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
-
-    .form-input {
-      background: #1e293b;
-      border-color: #475569;
-      color: #f8fafc;
-    }
-
-    .form-input:focus {
-      border-color: #3b82f6;
-    }
-
-    .slot-card {
-      background: #1e2d4a;
-      border-color: #2d4a7a;
-    }
-
-    .slot-subject {
-      color: #93c5fd;
-    }
-
-    .slot-time {
-      color: #60a5fa;
-    }
-
-    .slot-teacher {
-      color: #94a3b8;
-    }
-
-    .remove-btn:hover {
-      background: #7f1d1d;
-    }
-
-    .empty-slot {
-      color: #475569;
-    }
-
-    .empty-icon {
-      color: #475569;
-    }
+  /* Period info preview */
+  .period-preview {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    gap: 0 !important;
   }
+  .preview-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.375rem 0;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .preview-row:last-child { border-bottom: none; }
+  .preview-key { 
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.75rem; 
+    color: #94a3b8; 
+  }
+  .preview-val { font-size: 0.75rem; font-weight: 600; color: #334155; }
+
+  .panel-submit {
+    margin-top: auto;
+    padding: 0.75rem;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 0.625rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: background 150ms, transform 100ms;
+  }
+  .panel-submit:hover:not(:disabled) { background: #1d4ed8; }
+  .panel-submit:active:not(:disabled) { transform: scale(0.98); }
+  .panel-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .btn-spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    display: inline-block;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>

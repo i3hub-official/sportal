@@ -491,4 +491,18 @@
       color: #93c5fd;
     }
   }
+  
+  .submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+:global(.spinning) {
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 </style>

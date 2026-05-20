@@ -17,9 +17,9 @@ export const load: LayoutServerLoad = async (event) => {
           id:        true,
           firstName: true,
           lastName:  true,
-          staffRole: true,  // was: position
+          staffRole: true,
           photoUrl:  true,
-          staffId:   true,  // was: employeeId
+          staffId:   true,
         },
       },
       studentProfile: {

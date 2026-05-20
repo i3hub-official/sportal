@@ -15,7 +15,6 @@ export const actions: Actions = {
     const email    = formData.get('email')?.toString().trim() ?? '';
     const password = formData.get('password')?.toString() ?? '';
 
-    // Basic validation
     if (!email || !password) {
       return fail(400, { error: 'Email and password are required', email });
     }
@@ -24,16 +23,19 @@ export const actions: Actions = {
       return fail(400, { error: 'Invalid email address', email });
     }
 
+    // ── Attempt login outside try/catch so redirect isn't swallowed ──────────
+    let user: Awaited<ReturnType<typeof loginUser>>['user'];
+
     try {
-      const { user } = await loginUser(event, { email, password });
-      const redirectTo = event.url.searchParams.get('redirectTo') ?? getDashboardByRole(user.role);
-      throw redirect(303, redirectTo);
-    } catch (err) {
-      if (err instanceof Response) throw err; // rethrow redirect
-      return fail(401, {
-        error: 'Invalid email or password',
-        email,
-      });
+      const result = await loginUser(event, { email, password });
+      user = result.user;
+    } catch {
+      // Only credential errors land here — redirect is never thrown inside loginUser
+      return fail(401, { error: 'Invalid email or password', email });
     }
+
+    // ── Redirect OUTSIDE the try/catch ───────────────────────────────────────
+    const redirectTo = event.url.searchParams.get('redirectTo') ?? getDashboardByRole(user.role);
+    redirect(303, redirectTo);
   },
 };
