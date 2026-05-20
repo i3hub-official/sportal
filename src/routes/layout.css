@@ -1,0 +1,7 @@
+/* src/routes/layout.css */
+
+/* src/layout.css */
+
+@import 'tailwindcss';
+@plugin '@tailwindcss/forms';
+@plugin '@tailwindcss/typography';

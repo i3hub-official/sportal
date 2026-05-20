@@ -1,0 +1,436 @@
+// prisma/schema.prisma
+// School Management System — Full Schema
+// Covers: Auth, Staff, Students, Results, Attendance, Timetable, Fees
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN // Headmaster
+  ADMIN // Bursar, Secretary
+  TEACHER
+  STUDENT
+  PARENT
+}
+
+enum SchoolLevel {
+  NURSERY
+  PRIMARY
+  SECONDARY
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum Term {
+  FIRST
+  SECOND
+  THIRD
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum FeeStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+}
+
+enum StaffRole {
+  HEADMASTER
+  DEPUTY_HEAD
+  CLASS_TEACHER
+  SUBJECT_TEACHER
+  BURSAR
+  SECRETARY
+  LIBRARIAN
+  COUNSELOR
+  SUPPORT_STAFF
+}
+
+// ─────────────────────────────────────────
+// AUTH — Users & Sessions
+// ─────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(TEACHER)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions           Session[]
+  staffProfile       StaffProfile?
+  studentProfile     StudentProfile?
+  passwordResetToken PasswordResetToken?
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique @default(cuid())
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  ipAddress String?
+  userAgent String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("sessions")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  token     String   @unique @default(cuid())
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
+}
+
+// ─────────────────────────────────────────
+// ACADEMIC STRUCTURE
+// ─────────────────────────────────────────
+
+model AcademicYear {
+  id        String   @id @default(cuid())
+  name      String   @unique // e.g. "2024/2025"
+  startDate DateTime
+  endDate   DateTime
+  isCurrent Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  classes Class[]
+  terms   TermRecord[]
+  fees    FeeStructure[]
+
+  @@map("academic_years")
+}
+
+model TermRecord {
+  id             String   @id @default(cuid())
+  term           Term
+  academicYearId String
+  startDate      DateTime
+  endDate        DateTime
+  isCurrent      Boolean  @default(false)
+
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  results      Result[]
+  attendances  Attendance[]
+
+  @@unique([term, academicYearId])
+  @@map("term_records")
+}
+
+model Class {
+  id             String      @id @default(cuid())
+  name           String // e.g. "JSS 1A", "Primary 3B", "Nursery 2"
+  level          SchoolLevel
+  academicYearId String
+  classTeacherId String? // FK to StaffProfile
+  capacity       Int         @default(40)
+  createdAt      DateTime    @default(now())
+
+  academicYear   AcademicYear     @relation(fields: [academicYearId], references: [id])
+  classTeacher   StaffProfile?    @relation("ClassTeacher", fields: [classTeacherId], references: [id])
+  students       StudentProfile[]
+  timetableSlots TimetableSlot[]
+  attendances    Attendance[]
+  results        Result[]
+  feeRecords     FeeRecord[]
+
+  // FIX: required for seed upsert on name_academicYearId
+  @@unique([name, academicYearId])
+  @@map("classes")
+}
+
+model Subject {
+  id        String      @id @default(cuid())
+  name      String
+  code      String      @unique // e.g. "MATH", "ENG"
+  level     SchoolLevel
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+
+  staffSubjects  StaffSubject[]
+  timetableSlots TimetableSlot[]
+  results        Result[]
+
+  @@map("subjects")
+}
+
+// ─────────────────────────────────────────
+// STAFF
+// ─────────────────────────────────────────
+
+model StaffProfile {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  staffId       String    @unique // e.g. "TCH-001"
+  firstName     String
+  lastName      String
+  middleName    String?
+  gender        Gender
+  dateOfBirth   DateTime?
+  phone         String?
+  address       String?
+  staffRole     StaffRole
+  qualification String?
+  joinDate      DateTime  @default(now())
+  isActive      Boolean   @default(true)
+  photoUrl      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  classesAsTeacher  Class[]         @relation("ClassTeacher")
+  subjects          StaffSubject[]
+  timetableSlots    TimetableSlot[]
+  attendancesMarked Attendance[]    @relation("MarkedBy")
+
+  @@map("staff_profiles")
+}
+
+model StaffSubject {
+  id             String @id @default(cuid())
+  staffProfileId String
+  subjectId      String
+
+  staff   StaffProfile @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
+  subject Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([staffProfileId, subjectId])
+  @@map("staff_subjects")
+}
+
+// ─────────────────────────────────────────
+// STUDENTS
+// ─────────────────────────────────────────
+
+model StudentProfile {
+  id            String      @id @default(cuid())
+  userId        String?     @unique // null if no portal access
+  admissionNo   String      @unique // e.g. "SMS/2024/001"
+  firstName     String
+  lastName      String
+  middleName    String?
+  gender        Gender
+  dateOfBirth   DateTime
+  level         SchoolLevel
+  classId       String?
+  stateOfOrigin String?
+  religion      String?
+  bloodGroup    String?
+  address       String?
+  photoUrl      String?
+  isActive      Boolean     @default(true)
+  admissionDate DateTime    @default(now())
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  user        User?           @relation(fields: [userId], references: [id])
+  class       Class?          @relation(fields: [classId], references: [id])
+  parents     ParentStudent[]
+  results     Result[]
+  attendances Attendance[]
+  feeRecords  FeeRecord[]
+
+  @@map("student_profiles")
+}
+
+model ParentProfile {
+  id           String   @id @default(cuid())
+  firstName    String
+  lastName     String
+  phone        String
+  email        String?
+  address      String?
+  relationship String // "Father", "Mother", "Guardian"
+  createdAt    DateTime @default(now())
+
+  students ParentStudent[]
+
+  @@map("parent_profiles")
+}
+
+model ParentStudent {
+  id               String @id @default(cuid())
+  parentProfileId  String
+  studentProfileId String
+
+  parent  ParentProfile  @relation(fields: [parentProfileId], references: [id], onDelete: Cascade)
+  student StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([parentProfileId, studentProfileId])
+  @@map("parent_students")
+}
+
+// ─────────────────────────────────────────
+// RESULTS & GRADING
+// ─────────────────────────────────────────
+
+model GradeScale {
+  id       String      @id @default(cuid())
+  level    SchoolLevel
+  grade    String // A1, B2, C4, etc.
+  minScore Float
+  maxScore Float
+  remark   String // Excellent, Very Good, etc.
+
+  // FIX: required for seed upsert on level_grade
+  @@unique([level, grade])
+  @@map("grade_scales")
+}
+
+model Result {
+  id               String @id @default(cuid())
+  studentProfileId String
+  subjectId        String
+  classId          String
+  termRecordId     String
+
+  // Score breakdown
+  caScore    Float?  @default(0) // Continuous Assessment (40%)
+  examScore  Float?  @default(0) // Exam (60%)
+  totalScore Float? // Computed: ca + exam
+  grade      String?
+  remark     String?
+  position   Int? // Position in class for this subject
+
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  student    StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  subject    Subject        @relation(fields: [subjectId], references: [id])
+  class      Class          @relation(fields: [classId], references: [id])
+  termRecord TermRecord     @relation(fields: [termRecordId], references: [id])
+
+  @@unique([studentProfileId, subjectId, termRecordId])
+  @@map("results")
+}
+
+// ─────────────────────────────────────────
+// ATTENDANCE
+// ─────────────────────────────────────────
+
+model Attendance {
+  id               String           @id @default(cuid())
+  studentProfileId String
+  classId          String
+  termRecordId     String
+  date             DateTime         @db.Date
+  status           AttendanceStatus @default(PRESENT)
+  note             String?
+  markedById       String? // StaffProfile id
+
+  student    StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  class      Class          @relation(fields: [classId], references: [id])
+  termRecord TermRecord     @relation(fields: [termRecordId], references: [id])
+  markedBy   StaffProfile?  @relation("MarkedBy", fields: [markedById], references: [id])
+
+  @@unique([studentProfileId, date])
+  @@map("attendances")
+}
+
+// ─────────────────────────────────────────
+// TIMETABLE
+// ─────────────────────────────────────────
+
+model TimetableSlot {
+  id             String    @id @default(cuid())
+  classId        String
+  subjectId      String
+  staffProfileId String // Teacher
+  dayOfWeek      DayOfWeek
+  startTime      String // "08:00"
+  endTime        String // "08:40"
+  room           String?
+  academicYearId String?
+
+  class   Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject Subject      @relation(fields: [subjectId], references: [id])
+  teacher StaffProfile @relation(fields: [staffProfileId], references: [id])
+
+  @@map("timetable_slots")
+}
+
+// ─────────────────────────────────────────
+// FEES
+// ─────────────────────────────────────────
+
+model FeeStructure {
+  id             String      @id @default(cuid())
+  name           String // "School Fees", "PTA Levy", "Books"
+  amount         Float
+  level          SchoolLevel
+  term           Term
+  academicYearId String
+  dueDate        DateTime?
+  createdAt      DateTime    @default(now())
+
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  feeRecords   FeeRecord[]
+
+  // FIX: required for seed upsert on name_term_academicYearId
+  @@unique([name, term, academicYearId])
+  @@map("fee_structures")
+}
+
+model FeeRecord {
+  id               String    @id @default(cuid())
+  studentProfileId String
+  classId          String
+  feeStructureId   String
+  amountPaid       Float     @default(0)
+  balance          Float
+  status           FeeStatus @default(PENDING)
+  paidAt           DateTime?
+  receiptNo        String?   @unique
+  paymentMethod    String? // "Cash", "Transfer", "POS"
+  note             String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  student      StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  class        Class          @relation(fields: [classId], references: [id])
+  feeStructure FeeStructure   @relation(fields: [feeStructureId], references: [id])
+
+@@unique([studentProfileId, feeStructureId])
+  @@map("fee_records")
+}
