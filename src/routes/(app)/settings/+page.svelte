@@ -786,11 +786,12 @@
     font-size: 0.875rem;
     text-align: left;
     border-collapse: collapse;
+    color: #c6d6ec;
   }
 
   .settings-table thead {
     background: #f8fafc;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid #c6d6ec;
   }
 
   .settings-table th {
@@ -805,6 +806,7 @@
   .settings-table td {
     padding: 0.75rem 1rem;
     border-bottom: 1px solid #f1f5f9;
+    color: #c6d6ec;
   }
 
   .settings-table tr:last-child td {
