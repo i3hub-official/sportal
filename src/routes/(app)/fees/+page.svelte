@@ -343,7 +343,7 @@
                 {:else}
                   <span class="status-badge badge-gray">—</span>
                 {/if}
-                </td>
+               </td>
               <td>
                 {#if record.receiptNo}
                   <span class="receipt-no">
@@ -353,8 +353,8 @@
                 {:else}
                   <span class="no-receipt">—</span>
                 {/if}
-                </td>
-            </tr>
+               </td>
+             </tr>
           {:else}
             <tr class="empty-row">
               <td colspan="7" class="empty-state">
@@ -363,8 +363,8 @@
                   <p>No fee records found</p>
                   <span class="empty-hint">Try adjusting your search or filters</span>
                 </div>
-                </td>
-            </tr>
+               </td>
+             </tr>
           {/each}
         </tbody>
       </table>
@@ -799,6 +799,7 @@
   .paid-amount,
   .balance-amount {
     font-weight: 500;
+    color: #d7e4f5;
   }
 
   .paid-amount {
@@ -980,139 +981,162 @@
   }
 
   /* Dark Mode */
-  @media (prefers-color-scheme: dark) {
-    .fees-container {
-      background: #0f172a;
-    }
+  :global(.dark) .fees-container {
+    background: #0f172a;
+  }
 
-    .page-title {
-      color: #f8fafc;
-    }
+  :global(.dark) .page-title {
+    color: #f8fafc;
+  }
 
-    .title-icon {
-      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-    }
+  :global(.dark) .page-subtitle {
+    color: #94a3b8;
+  }
 
-    .summary-card,
-    .filters-card,
-    .table-wrapper {
-      background: #1e293b;
-      border-color: #334155;
-    }
+  :global(.dark) .title-icon {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  }
 
-    .summary-value {
-      color: #f8fafc;
-    }
+  :global(.dark) .summary-card,
+  :global(.dark) .filters-card,
+  :global(.dark) .table-wrapper {
+    background: #1e293b;
+    border-color: #334155;
+  }
 
-    .search-input,
-    .dropdown-trigger {
-      background: #1e293b;
-      border-color: #475569;
-      color: #f8fafc;
-    }
+  :global(.dark) .summary-value {
+    color: #f8fafc;
+  }
 
-    .search-input::placeholder {
-      color: #64748b;
-    }
+  :global(.dark) .summary-label {
+    color: #94a3b8;
+  }
 
-    .search-input:focus,
-    .dropdown-trigger:focus {
-      border-color: #3b82f6;
-    }
+  :global(.dark) .search-input,
+  :global(.dark) .dropdown-trigger {
+    background: #1e293b;
+    border-color: #475569;
+    color: #f8fafc;
+  }
 
-    .dropdown-menu {
-      background: #1e293b;
-      border-color: #475569;
-    }
+  :global(.dark) .search-input::placeholder {
+    color: #64748b;
+  }
 
-    .dropdown-search {
-      border-bottom-color: #475569;
-    }
+  :global(.dark) .search-input:focus,
+  :global(.dark) .dropdown-trigger:focus {
+    border-color: #3b82f6;
+  }
 
-    .dropdown-search input {
-      color: #f8fafc;
-    }
+  :global(.dark) .search-icon,
+  :global(.dark) .dropdown-school-icon {
+    color: #64748b;
+  }
 
-    .dropdown-option {
-      color: #cbd5e1;
-    }
+  :global(.dark) .dropdown-menu {
+    background: #1e293b;
+    border-color: #475569;
+  }
 
-    .dropdown-option:hover {
-      background: #334155;
-    }
+  :global(.dark) .dropdown-search {
+    border-bottom-color: #475569;
+  }
 
-    .dropdown-option.selected {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
+  :global(.dark) .dropdown-search input {
+    color: #f8fafc;
+  }
 
-    .fees-table thead {
-      background: #0f172a;
-      border-bottom-color: #334155;
-    }
+  :global(.dark) .dropdown-option {
+    color: #cbd5e1;
+  }
 
-    .fees-table th {
-      color: #94a3b8;
-    }
+  :global(.dark) .dropdown-option:hover {
+    background: #334155;
+  }
 
-    .fees-table td {
-      border-bottom-color: #334155;
-    }
+  :global(.dark) .dropdown-option.selected {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
 
-    .fee-row:hover td {
-      background: #0f172a;
-    }
+  :global(.dark) .fees-table thead {
+    background: #0f172a;
+    border-bottom-color: #334155;
+  }
 
-    .student-name {
-      color: #f8fafc;
-    }
+  :global(.dark) .fees-table th {
+    color: #94a3b8;
+  }
 
-    .student-avatar {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
+  :global(.dark) .fees-table td {
+    border-bottom-color: #334155;
+  }
 
-    .fee-type {
-      color: #cbd5e1;
-    }
+  :global(.dark) .fee-row:hover td {
+    background: #0f172a;
+  }
 
-    .badge-green {
-      background: #064e3b;
-      color: #6ee7b7;
-    }
+  :global(.dark) .student-name {
+    color: #f8fafc;
+  }
 
-    .badge-yellow {
-      background: #78350f;
-      color: #fde68a;
-    }
+  :global(.dark) .student-admission {
+    color: #94a3b8;
+  }
 
-    .badge-gray {
-      background: #334155;
-      color: #cbd5e1;
-    }
+  :global(.dark) .student-avatar {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
 
-    .badge-red {
-      background: #7f1d1d;
-      color: #fecaca;
-    }
+  :global(.dark) .fee-type {
+    color: #cbd5e1;
+  }
 
-    .receipt-no {
-      background: #334155;
-      color: #94a3b8;
-    }
+  :global(.dark) .badge-green {
+    background: #064e3b;
+    color: #6ee7b7;
+  }
 
-    .pagination-btn {
-      background: #1e293b;
-      border-color: #475569;
-      color: #cbd5e1;
-    }
+  :global(.dark) .badge-yellow {
+    background: #78350f;
+    color: #fde68a;
+  }
 
-    .pagination-btn:hover {
-      background: #334155;
-    }
+  :global(.dark) .badge-gray {
+    background: #334155;
+    color: #cbd5e1;
+  }
 
-    .empty-icon {
-      color: #475569;
-    }
+  :global(.dark) .badge-red {
+    background: #7f1d1d;
+    color: #fecaca;
+  }
+
+  :global(.dark) .receipt-no {
+    background: #334155;
+    color: #94a3b8;
+  }
+
+  :global(.dark) .pagination-btn {
+    background: #1e293b;
+    border-color: #475569;
+    color: #cbd5e1;
+  }
+
+  :global(.dark) .pagination-btn:hover {
+    background: #334155;
+  }
+
+  :global(.dark) .empty-icon {
+    color: #475569;
+  }
+
+  :global(.dark) .empty-state-content p {
+    color: #94a3b8;
+  }
+
+  :global(.dark) .empty-hint {
+    color: #64748b;
   }
 </style>

@@ -991,119 +991,156 @@
   }
 
   /* Dark Mode */
-  @media (prefers-color-scheme: dark) {
-    .settings-container {
-      background: #0f172a;
-    }
+  :global(.dark) .settings-container {
+    background: #0f172a;
+  }
 
-    .page-title {
-      color: #f8fafc;
-    }
+  :global(.dark) .page-title {
+    color: #f8fafc;
+  }
 
-    .title-icon {
-      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-    }
+  :global(.dark) .page-subtitle {
+    color: #94a3b8;
+  }
 
-    .tabs-container {
-      background: #1e293b;
-    }
+  :global(.dark) .title-icon {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  }
 
-    .tabs-container::-webkit-scrollbar-track {
-      background: #334155;
-    }
+  :global(.dark) .tabs-container {
+    background: #1e293b;
+  }
 
-    .tab-btn {
-      color: #94a3b8;
-    }
+  :global(.dark) .tabs-container::-webkit-scrollbar-track {
+    background: #334155;
+  }
 
-    .tab-btn:hover {
-      color: #f8fafc;
-      background: rgba(51, 65, 85, 0.5);
-    }
+  :global(.dark) .tab-btn {
+    color: #94a3b8;
+  }
 
-    .tab-btn.active {
-      background: #334155;
-      color: #f8fafc;
-    }
+  :global(.dark) .tab-btn:hover {
+    color: #f8fafc;
+    background: rgba(51, 65, 85, 0.5);
+  }
 
-    .section-title {
-      color: #f8fafc;
-    }
+  :global(.dark) .tab-btn.active {
+    background: #334155;
+    color: #f8fafc;
+  }
 
-    .add-btn {
-      background: #334155;
-      color: #cbd5e1;
-    }
+  :global(.dark) .section-title {
+    color: #f8fafc;
+  }
 
-    .add-btn:hover {
-      background: #475569;
-    }
+  :global(.dark) .add-btn {
+    background: #334155;
+    color: #cbd5e1;
+  }
 
-    .add-form-card,
-    .table-wrapper,
-    .password-card {
-      background: #1e293b;
-      border-color: #334155;
-    }
+  :global(.dark) .add-btn:hover {
+    background: #475569;
+  }
 
-    .form-input,
-    .form-select {
-      background: #1e293b;
-      border-color: #475569;
-      color: #f8fafc;
-    }
+  :global(.dark) .error-alert {
+    background: #7f1d1d;
+    border-color: #991b1b;
+    color: #fecaca;
+  }
 
-    .form-input:focus {
-      border-color: #3b82f6;
-    }
+  :global(.dark) .success-alert {
+    background: #064e3b;
+    border-color: #065f46;
+    color: #6ee7b7;
+  }
 
-    .settings-table thead {
-      background: #0f172a;
-      border-bottom-color: #334155;
-    }
+  :global(.dark) .add-form-card,
+  :global(.dark) .table-wrapper,
+  :global(.dark) .password-card {
+    background: #1e293b;
+    border-color: #334155;
+  }
 
-    .settings-table th {
-      color: #94a3b8;
-    }
+  :global(.dark) .form-label {
+    color: #94a3b8;
+  }
 
-    .settings-table td {
-      border-bottom-color: #334155;
-    }
+  :global(.dark) .form-input {
+    background: #1e293b;
+    border-color: #475569;
+    color: #f8fafc;
+  }
 
-    .year-name,
-    .term-name,
-    .fee-name {
-      color: #f8fafc;
-    }
+  :global(.dark) .form-input:focus {
+    border-color: #3b82f6;
+  }
 
-    .status-badge.current {
-      background: #064e3b;
-      color: #6ee7b7;
-    }
+  :global(.dark) .settings-table thead {
+    background: #0f172a;
+    border-bottom-color: #334155;
+  }
 
-    .set-current-btn {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
+  :global(.dark) .settings-table th {
+    color: #94a3b8;
+  }
 
-    .set-current-btn:hover {
-      background: #2d4a7a;
-    }
+  :global(.dark) .settings-table td {
+    border-bottom-color: #334155;
+  }
 
-    .password-toggle {
-      color: #64748b;
-    }
+  :global(.dark) .year-name,
+  :global(.dark) .term-name,
+  :global(.dark) .fee-name {
+    color: #f8fafc;
+  }
 
-    .password-toggle:hover {
-      color: #94a3b8;
-    }
+  :global(.dark) .fee-amount {
+    color: #34d399;
+  }
 
-    .empty-icon {
-      color: #475569;
-    }
+  :global(.dark) .fee-description {
+    color: #94a3b8;
+  }
 
-    .empty-state p {
-      color: #94a3b8;
-    }
+  :global(.dark) .record-id {
+    color: #64748b;
+  }
+
+  :global(.dark) .status-badge.current {
+    background: #064e3b;
+    color: #6ee7b7;
+  }
+
+  :global(.dark) .set-current-btn {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
+
+  :global(.dark) .set-current-btn:hover {
+    background: #2d4a7a;
+  }
+
+  :global(.dark) .password-toggle {
+    color: #64748b;
+  }
+
+  :global(.dark) .password-toggle:hover {
+    color: #94a3b8;
+  }
+
+  :global(.dark) .password-hint {
+    color: #64748b;
+  }
+
+  :global(.dark) .empty-icon {
+    color: #475569;
+  }
+
+  :global(.dark) .empty-state p {
+    color: #94a3b8;
+  }
+
+  :global(.dark) .empty-hint {
+    color: #64748b;
   }
 </style>

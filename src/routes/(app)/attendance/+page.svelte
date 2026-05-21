@@ -5,21 +5,28 @@
     Users, CheckSquare, Save, Download, 
     Check, X, Clock, AlertCircle, UserCheck, UserX,
     Loader2, TrendingUp, TrendingDown, Activity,
-    Search, ChevronDown
+    Search, ChevronDown, Calendar as CalendarIcon,
+    ChevronLeft, ChevronRight, Shield, Lock
   } from 'lucide-svelte';
 
   let { data }: { data: PageData } = $props();
 
   let selectedClass = $state('');
-  let selectedDate  = $state(new Date().toISOString().slice(0, 10));
+  let selectedDate  = $state(new Date());
   let students      = $state<any[]>([]);
   let loading       = $state(false);
   let saving        = $state(false);
   let saved         = $state(false);
+  let canEdit       = $state(false);
+  let isHeadmaster  = $state(data.userRole === 'SUPER_ADMIN');
 
   // Class dropdown states
   let classDropdownOpen = $state(false);
   let classSearch = $state('');
+
+  // Calendar states
+  let showCalendar = $state(false);
+  let currentCalendarDate = $state(new Date());
 
   // Get selected class label
   const selectedClassLabel = $derived(() => {
@@ -36,13 +43,134 @@
     );
   });
 
+  // Format date for display
+  const formattedDate = $derived(() => {
+    return selectedDate.toLocaleDateString('en-NG', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  });
+
+  // Check if selected date is today
+  const isToday = $derived(() => {
+    const today = new Date();
+    return selectedDate.toDateString() === today.toDateString();
+  });
+
+  // Format date for API
+  const apiDate = $derived(() => {
+    const year = selectedDate.getFullYear();
+    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedDate.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  });
+
+  // Get days in current month
+  function getDaysInMonth(year: number, month: number) {
+    return new Date(year, month + 1, 0).getDate();
+  }
+
+  // Get first day of month (0 = Sunday)
+  function getFirstDayOfMonth(year: number, month: number) {
+    return new Date(year, month, 1).getDay();
+  }
+
+  // Generate calendar days
+  function getCalendarDays() {
+    const year = currentCalendarDate.getFullYear();
+    const month = currentCalendarDate.getMonth();
+    
+    const daysInMonth = getDaysInMonth(year, month);
+    const firstDay = getFirstDayOfMonth(year, month);
+    
+    const prevMonthDays = getDaysInMonth(year, month - 1);
+    const daysFromPrevMonth = firstDay;
+    const totalCells = 42;
+    const daysFromNextMonth = totalCells - (daysFromPrevMonth + daysInMonth);
+    
+    const days = [];
+    
+    for (let i = daysFromPrevMonth - 1; i >= 0; i--) {
+      const prevDate = new Date(year, month - 1, prevMonthDays - i);
+      days.push({
+        date: prevDate,
+        day: prevMonthDays - i,
+        isCurrentMonth: false,
+        isToday: isSameDay(prevDate, new Date()),
+        isSelected: isSameDay(prevDate, selectedDate)
+      });
+    }
+    
+    for (let i = 1; i <= daysInMonth; i++) {
+      const currentDate = new Date(year, month, i);
+      days.push({
+        date: currentDate,
+        day: i,
+        isCurrentMonth: true,
+        isToday: isSameDay(currentDate, new Date()),
+        isSelected: isSameDay(currentDate, selectedDate)
+      });
+    }
+    
+    for (let i = 1; i <= daysFromNextMonth; i++) {
+      const nextDate = new Date(year, month + 1, i);
+      days.push({
+        date: nextDate,
+        day: i,
+        isCurrentMonth: false,
+        isToday: isSameDay(nextDate, new Date()),
+        isSelected: isSameDay(nextDate, selectedDate)
+      });
+    }
+    
+    return days;
+  }
+
+  function isSameDay(date1: Date, date2: Date): boolean {
+    return date1.getFullYear() === date2.getFullYear() &&
+           date1.getMonth() === date2.getMonth() &&
+           date1.getDate() === date2.getDate();
+  }
+
+  const calendarDays = $derived(getCalendarDays());
+
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  function goToPreviousMonth() {
+    currentCalendarDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() - 1, 1);
+  }
+
+  function goToNextMonth() {
+    currentCalendarDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 1);
+  }
+
+  async function selectDate(date: Date) {
+    selectedDate = date;
+    showCalendar = false;
+    await loadAttendance();
+  }
+
   async function loadAttendance() {
-    if (!selectedClass || !selectedDate) return;
+    if (!selectedClass || !apiDate()) return;
     loading = true;
-    const res = await fetch(`/api/attendance?classId=${selectedClass}&date=${selectedDate}`);
-    const json = await res.json();
-    students = json.data ?? [];
-    loading = false;
+    try {
+      const res = await fetch(`/api/attendance/get?classId=${selectedClass}&date=${apiDate()}`);
+      const json = await res.json();
+      students = json.data ?? [];
+      canEdit = json.canEditAny || false;
+    } catch (error) {
+      console.error('Failed to load attendance:', error);
+      students = [];
+    } finally {
+      loading = false;
+    }
   }
 
   function selectClass(classId: string) {
@@ -60,31 +188,74 @@
   }
 
   function setAll(status: string) {
+    if (!canEdit && !isHeadmaster && !isToday()) {
+      alert('You can only modify today\'s attendance');
+      return;
+    }
     students = students.map(s => ({ ...s, status }));
   }
 
   async function saveAttendance() {
+    if (!canEdit && !isHeadmaster && !isToday()) {
+      alert('Teachers can only save attendance for the current day');
+      return;
+    }
+    
     saving = true;
-    await fetch('/api/attendance', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ classId: selectedClass, date: selectedDate, records: students }),
-    });
-    saving = false;
-    saved  = true;
-    setTimeout(() => saved = false, 3000);
+    try {
+      const records = students.map(s => ({
+        studentId: s.studentId,
+        status: s.status,
+        note: s.note
+      }));
+      
+      const res = await fetch('/api/attendance/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          classId: selectedClass, 
+          date: apiDate(), 
+          records 
+        }),
+      });
+      
+      const result = await res.json();
+      if (result.success) {
+        saved = true;
+        setTimeout(() => saved = false, 3000);
+        await loadAttendance();
+      } else if (result.error) {
+        alert(result.error);
+      }
+    } catch (error) {
+      console.error('Failed to save attendance:', error);
+      alert('Failed to save attendance');
+    } finally {
+      saving = false;
+    }
+  }
+
+  function updateStudentStatus(student: any, status: string) {
+    if (!canEdit && !isHeadmaster && !isToday()) {
+      alert('Teachers can only modify today\'s attendance');
+      return;
+    }
+    student.status = status;
   }
 
   const statusOptions = ['PRESENT', 'ABSENT', 'LATE', 'EXCUSED'];
-  const statusColor: Record<string, string> = {
-    PRESENT: 'badge-green', ABSENT: 'badge-red', LATE: 'badge-yellow', EXCUSED: 'badge-gray'
-  };
-
   const statusIcon: Record<string, any> = {
     PRESENT: Check,
     ABSENT: X,
     LATE: Clock,
     EXCUSED: AlertCircle
+  };
+
+  const statusLabels: Record<string, string> = {
+    PRESENT: 'Present',
+    ABSENT: 'Absent',
+    LATE: 'Late',
+    EXCUSED: 'Excused'
   };
 
   // Calculate summary stats
@@ -99,11 +270,14 @@
       : 0
   });
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   function handleClickOutside(e: MouseEvent) {
     const target = e.target as HTMLElement;
     if (!target.closest('.custom-dropdown')) {
       classDropdownOpen = false;
+    }
+    if (!target.closest('.calendar-container')) {
+      showCalendar = false;
     }
   }
 </script>
@@ -124,11 +298,26 @@
           <p class="page-subtitle">Mark daily student attendance</p>
         </div>
       </div>
+      {#if isHeadmaster}
+        <div class="role-badge headmaster">
+          <Shield size={14} />
+          <span>Headmaster Access - Full Control</span>
+        </div>
+      {:else if !canEdit && selectedClass && !isToday()}
+        <div class="role-badge readonly">
+          <Lock size={14} />
+          <span>Read Only - Past attendance cannot be modified</span>
+        </div>
+      {:else if selectedClass && isToday()}
+        <div class="role-badge editable">
+          <CheckSquare size={14} />
+          <span>Editable - Current day attendance</span>
+        </div>
+      {/if}
     </div>
 
     <div class="filters-card">
       <div class="filters-body">
-        <!-- Class Searchable Dropdown -->
         <div class="filter-group">
           <label class="filter-label">Class *</label>
           <div class="custom-dropdown" class:open={classDropdownOpen}>
@@ -152,6 +341,7 @@
             {#if classDropdownOpen}
               <div class="dropdown-menu">
                 <div class="dropdown-search">
+                  <Search size={14} />
                   <input 
                     type="text" 
                     placeholder="Search class..." 
@@ -176,17 +366,51 @@
           </div>
         </div>
 
-        <!-- Date Picker -->
         <div class="filter-group">
           <label class="filter-label">Date *</label>
-          <div class="date-input-wrapper">
-            <input 
-              type="date" 
-              bind:value={selectedDate} 
-              onchange={loadAttendance} 
-              class="date-input"
-              max={new Date().toISOString().slice(0, 10)} 
-            />
+          <div class="calendar-container">
+            <button 
+              type="button" 
+              class="calendar-trigger"
+              onclick={(e) => { e.stopPropagation(); showCalendar = !showCalendar; }}
+            >
+              <CalendarIcon size={16} />
+              <span class="calendar-value">{formattedDate()}</span>
+              <ChevronDown size={16} class="calendar-icon" />
+            </button>
+            
+            {#if showCalendar}
+              <div class="calendar-dropdown">
+                <div class="calendar-header">
+                  <button onclick={(e) => { e.stopPropagation(); goToPreviousMonth(); }} class="calendar-nav">
+                    <ChevronLeft size={16} />
+                  </button>
+                  <span class="calendar-month">
+                    {monthNames[currentCalendarDate.getMonth()]} {currentCalendarDate.getFullYear()}
+                  </span>
+                  <button onclick={(e) => { e.stopPropagation(); goToNextMonth(); }} class="calendar-nav">
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+                
+                <div class="calendar-weekdays">
+                  {#each dayNames as day}
+                    <div class="calendar-weekday">{day}</div>
+                  {/each}
+                </div>
+                
+                <div class="calendar-days">
+                  {#each calendarDays as day}
+                    <div 
+                      class="calendar-day {!day.isCurrentMonth ? 'other-month' : ''} {day.isToday ? 'today' : ''} {day.isSelected ? 'selected' : ''}"
+                      onclick={(e) => { e.stopPropagation(); selectDate(day.date); }}
+                    >
+                      {day.day}
+                    </div>
+                  {/each}
+                </div>
+              </div>
+            {/if}
           </div>
         </div>
       </div>
@@ -198,7 +422,6 @@
         <p>Loading attendance data...</p>
       </div>
     {:else if students.length > 0}
-      <!-- Summary Cards -->
       <div class="summary-grid">
         <div class="summary-card total">
           <div class="summary-icon">
@@ -252,10 +475,17 @@
           <div class="header-info">
             <Users size={16} />
             <span>{students.length} students</span>
+            {#if !canEdit && !isHeadmaster && !isToday() && selectedClass}
+              <span class="readonly-badge">Read Only</span>
+            {/if}
           </div>
           <div class="quick-actions">
             {#each statusOptions as s}
-              <button onclick={() => setAll(s)} class="quick-action-btn">
+              <button 
+                onclick={() => setAll(s)} 
+                class="quick-action-btn"
+                disabled={!canEdit && !isHeadmaster && !isToday()}
+              >
                 {#if s === 'PRESENT'}
                   <Check size={12} />
                 {:else if s === 'ABSENT'}
@@ -265,7 +495,7 @@
                 {:else}
                   <AlertCircle size={12} />
                 {/if}
-                {s.slice(0, 3)} All
+                {statusLabels[s]}
               </button>
             {/each}
           </div>
@@ -277,6 +507,7 @@
               <tr>
                 <th>#</th>
                 <th>Student</th>
+                <th>Admission No</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -290,19 +521,26 @@
                     </div>
                     <span>{student.studentName}</span>
                   </td>
+                  <td class="admission-no">{student.admissionNo}</td>
                   <td class="status-buttons">
                     <div class="status-btn-group">
                       {#each statusOptions as s}
                         {@const Icon = statusIcon[s]}
                         <button
-                          onclick={() => student.status = s}
+                          onclick={() => updateStudentStatus(student, s)}
                           class="status-btn {student.status === s ? 'active' : ''} {s.toLowerCase()}"
-                          title={s.toLowerCase()}
+                          title={statusLabels[s]}
+                          disabled={!student.canEdit && !isHeadmaster}
                         >
                           <Icon size={14} />
                         </button>
                       {/each}
                     </div>
+                    {#if student.note}
+                      <div class="status-note" title={student.note}>
+                        <AlertCircle size={10} />
+                      </div>
+                    {/if}
                   </td>
                 </tr>
               {/each}
@@ -311,7 +549,11 @@
         </div>
         
         <div class="card-footer">
-          <button onclick={saveAttendance} disabled={saving} class="save-btn">
+          <button 
+            onclick={saveAttendance} 
+            disabled={saving || (!canEdit && !isHeadmaster && !isToday())} 
+            class="save-btn"
+          >
             {#if saving}
               <Loader2 size={16} class="spinning" />
               Saving...
@@ -356,9 +598,13 @@
     margin: 0 auto;
   }
 
-  /* Page Header */
   .page-header {
     margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
   }
 
   .header-title-section {
@@ -391,7 +637,69 @@
     margin: 0;
   }
 
-  /* Filters Card */
+  .role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .role-badge.headmaster {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .role-badge.readonly {
+    background: #fef2f2;
+    color: #991b1b;
+  }
+
+  .role-badge.editable {
+    background: #ecfdf5;
+    color: #065f46;
+  }
+
+  .readonly-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.375rem;
+    background: #f1f5f9;
+    color: #64748b;
+    border-radius: 0.25rem;
+    font-size: 0.65rem;
+    font-weight: 500;
+    margin-left: 0.5rem;
+  }
+
+  .admission-no {
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: #64748b;
+  }
+
+  .status-note {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    color: #94a3b8;
+  }
+
+  .status-buttons {
+    position: relative;
+  }
+
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  button:disabled:hover {
+    transform: none;
+  }
+
   .filters-card {
     background: white;
     border: 1px solid #e2e8f0;
@@ -422,7 +730,6 @@
     letter-spacing: 0.05em;
   }
 
-  /* Custom Dropdown Styles */
   .custom-dropdown {
     position: relative;
     width: 100%;
@@ -496,7 +803,7 @@
     background: white;
     border: 1px solid #e2e8f0;
     border-radius: 0.5rem;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     z-index: 50;
     overflow: hidden;
   }
@@ -504,21 +811,18 @@
   .dropdown-search {
     padding: 0.5rem;
     border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #94a3b8;
   }
 
   .dropdown-search input {
-    width: 100%;
-    padding: 0.375rem 0.5rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.375rem;
-    font-size: 0.875rem;
+    flex: 1;
+    border: none;
     outline: none;
-    transition: all 0.15s ease;
-  }
-
-  .dropdown-search input:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+    font-size: 0.875rem;
+    background: transparent;
   }
 
   .dropdown-search input::placeholder {
@@ -554,27 +858,138 @@
     text-align: center;
   }
 
-  /* Date Input */
-  .date-input-wrapper {
+  .calendar-container {
     position: relative;
+    width: 100%;
   }
 
-  .date-input {
+  .calendar-trigger {
     width: 100%;
     padding: 0.5rem 0.75rem;
+    background: white;
     border: 1px solid #cbd5e1;
     border-radius: 0.5rem;
     font-size: 0.875rem;
+    color: #0f172a;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.15s ease;
+  }
+
+  .calendar-trigger:hover {
+    border-color: #94a3b8;
+  }
+
+  .calendar-value {
+    flex: 1;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .calendar-icon {
+    flex-shrink: 0;
+    color: #94a3b8;
+    transition: transform 0.15s ease;
+  }
+
+  .calendar-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 0.25rem;
     background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    z-index: 50;
+    padding: 0.75rem;
+    min-width: 280px;
   }
 
-  .date-input:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  .calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
   }
 
-  /* Loading State */
+  .calendar-nav {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    transition: background 0.15s ease;
+  }
+
+  .calendar-nav:hover {
+    background: #f1f5f9;
+  }
+
+  .calendar-month {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.25rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .calendar-weekday {
+    text-align: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #64748b;
+    padding: 0.25rem;
+  }
+
+  .calendar-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.25rem;
+  }
+
+  .calendar-day {
+    text-align: center;
+    padding: 0.5rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+    border-radius: 0.375rem;
+    transition: all 0.15s ease;
+  }
+
+  .calendar-day:hover {
+    background: #f1f5f9;
+  }
+
+  .calendar-day.other-month {
+    color: #cbd5e1;
+  }
+
+  .calendar-day.today {
+    background: #eff6ff;
+    color: #2563eb;
+    font-weight: 600;
+  }
+
+  .calendar-day.selected {
+    background: #2563eb;
+    color: white;
+  }
+
   .loading-state {
     display: flex;
     flex-direction: column;
@@ -585,7 +1000,6 @@
     color: #64748b;
   }
 
-  /* Summary Grid */
   .summary-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -662,11 +1076,6 @@
     color: #0f172a;
   }
 
-  .summary-card.rate .summary-value {
-    font-size: 1.25rem;
-  }
-
-  /* Attendance Card */
   .attendance-card {
     background: white;
     border: 1px solid #e2e8f0;
@@ -720,7 +1129,6 @@
     transform: translateY(-1px);
   }
 
-  /* Table */
   .table-wrapper {
     width: 100%;
     overflow-x: auto;
@@ -782,7 +1190,6 @@
     font-weight: 600;
   }
 
-  /* Status Buttons */
   .status-buttons {
     width: 200px;
   }
@@ -846,7 +1253,6 @@
     background: #f8fafc;
   }
 
-  /* Card Footer */
   .card-footer {
     padding: 1rem 1.25rem;
     border-top: 1px solid #f1f5f9;
@@ -890,7 +1296,6 @@
     font-weight: 500;
   }
 
-  /* Empty State */
   .empty-state {
     text-align: center;
     padding: 3rem;
@@ -915,7 +1320,6 @@
     color: #94a3b8;
   }
 
-  /* Spinner */
   .spinning {
     animation: spin 0.6s linear infinite;
   }
@@ -926,7 +1330,6 @@
     }
   }
 
-  /* Responsive Design */
   @media (max-width: 768px) {
     .attendance-container {
       padding: 1rem;
@@ -966,127 +1369,219 @@
     .status-btn-group {
       flex-wrap: wrap;
     }
+
+    .calendar-dropdown {
+      left: auto;
+      right: 0;
+      min-width: 260px;
+    }
   }
 
   /* Dark Mode */
-  @media (prefers-color-scheme: dark) {
-    .attendance-container {
-      background: #0f172a;
-    }
+  :global(.dark) .attendance-container {
+    background: #0f172a;
+  }
 
-    .page-title {
-      color: #f8fafc;
-    }
+  :global(.dark) .page-title {
+    color: #f8fafc;
+  }
 
-    .title-icon {
-      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-    }
+  :global(.dark) .page-subtitle {
+    color: #94a3b8;
+  }
 
-    .filters-card,
-    .attendance-card,
-    .summary-card,
-    .empty-state {
-      background: #1e293b;
-      border-color: #334155;
-    }
+  :global(.dark) .title-icon {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  }
 
-    .dropdown-trigger,
-    .date-input {
-      background: #1e293b;
-      border-color: #475569;
-      color: #f8fafc;
-    }
+  :global(.dark) .role-badge.headmaster {
+    background: #78350f;
+    color: #fde68a;
+  }
 
-    .dropdown-trigger:hover {
-      border-color: #64748b;
-    }
+  :global(.dark) .role-badge.readonly {
+    background: #7f1d1d;
+    color: #fecaca;
+  }
 
-    .dropdown-menu {
-      background: #1e293b;
-      border-color: #475569;
-    }
+  :global(.dark) .role-badge.editable {
+    background: #064e3b;
+    color: #6ee7b7;
+  }
 
-    .dropdown-search {
-      border-bottom-color: #475569;
-    }
+  :global(.dark) .readonly-badge {
+    background: #334155;
+    color: #94a3b8;
+  }
 
-    .dropdown-search input {
-      background: #1e293b;
-      border-color: #475569;
-      color: #f8fafc;
-    }
+  :global(.dark) .admission-no {
+    color: #94a3b8;
+  }
 
-    .dropdown-search input:focus {
-      border-color: #3b82f6;
-    }
+  :global(.dark) .filters-card,
+  :global(.dark) .attendance-card,
+  :global(.dark) .summary-card,
+  :global(.dark) .empty-state {
+    background: #1e293b;
+    border-color: #334155;
+  }
 
-    .dropdown-option {
-      color: #cbd5e1;
-    }
+  :global(.dark) .filter-label {
+    color: #94a3b8;
+  }
 
-    .dropdown-option:hover {
-      background: #334155;
-    }
+  :global(.dark) .dropdown-trigger,
+  :global(.dark) .calendar-trigger {
+    background: #1e293b;
+    border-color: #475569;
+    color: #f8fafc;
+  }
 
-    .dropdown-option.selected {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
+  :global(.dark) .dropdown-trigger:hover,
+  :global(.dark) .calendar-trigger:hover {
+    border-color: #64748b;
+  }
 
-    .summary-value {
-      color: #f8fafc;
-    }
+  :global(.dark) .dropdown-menu,
+  :global(.dark) .calendar-dropdown {
+    background: #1e293b;
+    border-color: #475569;
+  }
 
-    .attendance-table thead {
-      background: #0f172a;
-      border-bottom-color: #334155;
-    }
+  :global(.dark) .dropdown-search {
+    border-bottom-color: #475569;
+  }
 
-    .attendance-table th {
-      color: #94a3b8;
-    }
+  :global(.dark) .dropdown-search input {
+    background: #1e293b;
+    border-color: #475569;
+    color: #f8fafc;
+  }
 
-    .attendance-table td {
-      border-bottom-color: #334155;
-    }
+  :global(.dark) .dropdown-option {
+    color: #cbd5e1;
+  }
 
-    .student-row:hover td {
-      background: #0f172a;
-    }
+  :global(.dark) .dropdown-option:hover {
+    background: #334155;
+  }
 
-    .student-name-cell {
-      color: #f8fafc;
-    }
+  :global(.dark) .dropdown-option.selected {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
 
-    .student-avatar {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
+  :global(.dark) .calendar-nav:hover {
+    background: #334155;
+  }
 
-    .status-btn {
-      background: #1e293b;
-      border-color: #475569;
-    }
+  :global(.dark) .calendar-month {
+    color: #f8fafc;
+  }
 
-    .status-btn:not(.active) {
-      color: #64748b;
-    }
+  :global(.dark) .calendar-weekday {
+    color: #94a3b8;
+  }
 
-    .status-btn:not(.active):hover {
-      background: #334155;
-    }
+  :global(.dark) .calendar-day {
+    color: #cbd5e1;
+  }
 
-    .quick-action-btn {
-      background: #334155;
-      color: #cbd5e1;
-    }
+  :global(.dark) .calendar-day:hover {
+    background: #334155;
+  }
 
-    .quick-action-btn:hover {
-      background: #475569;
-    }
+  :global(.dark) .calendar-day.other-month {
+    color: #64748b;
+  }
 
-    .empty-icon {
-      color: #475569;
-    }
+  :global(.dark) .calendar-day.today {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
+
+  :global(.dark) .calendar-day.selected {
+    background: #2563eb;
+    color: white;
+  }
+
+  :global(.dark) .summary-value {
+    color: #f8fafc;
+  }
+
+  :global(.dark) .summary-label {
+    color: #94a3b8;
+  }
+
+  :global(.dark) .attendance-table thead {
+    background: #0f172a;
+    border-bottom-color: #334155;
+  }
+
+  :global(.dark) .attendance-table th {
+    color: #94a3b8;
+  }
+
+  :global(.dark) .attendance-table td {
+    border-bottom-color: #334155;
+  }
+
+  :global(.dark) .student-row:hover td {
+    background: #0f172a;
+  }
+
+  :global(.dark) .student-name-cell {
+    color: #f8fafc;
+  }
+
+  :global(.dark) .student-avatar {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
+
+  :global(.dark) .status-btn {
+    background: #1e293b;
+    border-color: #475569;
+  }
+
+  :global(.dark) .status-btn:not(.active) {
+    color: #64748b;
+  }
+
+  :global(.dark) .status-btn:not(.active):hover {
+    background: #334155;
+  }
+
+  :global(.dark) .quick-action-btn {
+    background: #334155;
+    color: #cbd5e1;
+  }
+
+  :global(.dark) .quick-action-btn:hover {
+    background: #475569;
+  }
+
+  :global(.dark) .empty-icon {
+    color: #475569;
+  }
+
+  :global(.dark) .empty-state p {
+    color: #94a3b8;
+  }
+
+  :global(.dark) .empty-hint {
+    color: #64748b;
+  }
+
+  :global(.dark) .save-btn {
+    background: #3b82f6;
+  }
+
+  :global(.dark) .save-btn:hover:not(:disabled) {
+    background: #2563eb;
+  }
+
+  :global(.dark) .save-btn:disabled {
+    background: #475569;
   }
 </style>
