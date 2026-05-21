@@ -6,7 +6,7 @@
   import { 
     Filter, Plus, Eye, Users, GraduationCap, 
     BookOpen, ChevronLeft, ChevronRight, UserPlus,
-    ChevronDown, X
+    ChevronDown, X, Search
   } from 'lucide-svelte';
 
   let { data }: { data: PageData } = $props();
@@ -142,6 +142,7 @@
   <div class="filters-card">
     <div class="filters-body">
       <div class="search-wrapper">
+        <Search size={16} class="search-icon" />
         <input 
           type="search" 
           bind:value={search} 
@@ -174,7 +175,8 @@
           {#if levelDropdownOpen}
             <div class="dropdown-menu">
               <div class="dropdown-search">
-                              <input 
+                <Search size={14} />
+                <input 
                   type="text" 
                   placeholder="Search level..." 
                   bind:value={levelSearch}
@@ -221,6 +223,7 @@
           {#if classDropdownOpen}
             <div class="dropdown-menu">
               <div class="dropdown-search">
+                <Search size={14} />
                 <input 
                   type="text" 
                   placeholder="Search class..." 
@@ -329,6 +332,8 @@
 
   .students-container {
     padding: 1.5rem;
+    background: #f8fafc;
+    min-height: calc(100vh - 4rem);
   }
 
   /* Page Header */
@@ -516,7 +521,7 @@
     background: white;
     border: 1px solid #e2e8f0;
     border-radius: 0.5rem;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     z-index: 50;
     overflow: hidden;
   }
@@ -814,143 +819,154 @@
   }
 
   /* Dark Mode */
-  @media (prefers-color-scheme: dark) {
-    .page-title {
-      color: #f8fafc;
-    }
+  :global(.dark) .students-container {
+    background: #0f172a;
+  }
 
-    .page-subtitle {
-      color: #94a3b8;
-    }
+  :global(.dark) .page-title {
+    color: #f8fafc;
+  }
 
-    .title-icon {
-      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-    }
+  :global(.dark) .page-subtitle {
+    color: #94a3b8;
+  }
 
-    .filters-card {
-      background: #1e293b;
-      border-color: #334155;
-    }
+  :global(.dark) .title-icon {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  }
 
-    .search-input,
-    .dropdown-trigger {
-      background: #1e293b;
-      border-color: #475569;
-      color: #f8fafc;
-    }
+  :global(.dark) .filters-card {
+    background: #1e293b;
+    border-color: #334155;
+  }
 
-    .search-input::placeholder {
-      color: #64748b;
-    }
+  :global(.dark) .search-input,
+  :global(.dark) .dropdown-trigger {
+    background: #1e293b;
+    border-color: #475569;
+    color: #f8fafc;
+  }
 
-    .search-input:focus,
-    .dropdown-trigger:focus {
-      border-color: #3b82f6;
-    }
+  :global(.dark) .search-input::placeholder {
+    color: #64748b;
+  }
 
-    .search-icon {
-      color: #64748b;
-    }
+  :global(.dark) .search-input:focus,
+  :global(.dark) .dropdown-trigger:focus {
+    border-color: #3b82f6;
+  }
 
-    .dropdown-menu {
-      background: #1e293b;
-      border-color: #475569;
-    }
+  :global(.dark) .search-icon {
+    color: #64748b;
+  }
 
-    .dropdown-search {
-      border-bottom-color: #475569;
-    }
+  :global(.dark) .dropdown-menu {
+    background: #1e293b;
+    border-color: #475569;
+  }
 
-    .dropdown-search input {
-      color: #f8fafc;
-    }
+  :global(.dark) .dropdown-search {
+    border-bottom-color: #475569;
+  }
 
-    .dropdown-search input::placeholder {
-      color: #64748b;
-    }
+  :global(.dark) .dropdown-search input {
+    color: #f8fafc;
+  }
 
-    .dropdown-option {
-      color: #cbd5e1;
-    }
+  :global(.dark) .dropdown-search input::placeholder {
+    color: #64748b;
+  }
 
-    .dropdown-option:hover {
-      background: #334155;
-    }
+  :global(.dark) .dropdown-option {
+    color: #cbd5e1;
+  }
 
-    .dropdown-option.selected {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
+  :global(.dark) .dropdown-option:hover {
+    background: #334155;
+  }
 
-    .table-wrapper {
-      background: #1e293b;
-      border-color: #334155;
-    }
+  :global(.dark) .dropdown-option.selected {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
 
-    .student-table thead {
-      background: #0f172a;
-      border-bottom-color: #334155;
-    }
+  :global(.dark) .table-wrapper {
+    background: #1e293b;
+    border-color: #334155;
+  }
 
-    .student-table th {
-      color: #94a3b8;
-    }
+  :global(.dark) .student-table thead {
+    background: #0f172a;
+    border-bottom-color: #334155;
+  }
 
-    .student-table td {
-      color: #cbd5e1;
-      border-bottom-color: #334155;
-    }
+  :global(.dark) .student-table th {
+    color: #94a3b8;
+  }
 
-    .student-table tbody tr:hover td {
-      background: #0f172a;
-    }
+  :global(.dark) .student-table td {
+    color: #cbd5e1;
+    border-bottom-color: #334155;
+  }
 
-    .student-name {
-      color: #f8fafc;
-    }
+  :global(.dark) .student-table tbody tr:hover td {
+    background: #0f172a;
+  }
 
-    .student-avatar {
-      background: #064e3b;
-      color: #6ee7b7;
-    }
+  :global(.dark) .student-name {
+    color: #f8fafc;
+  }
 
-    .badge-purple {
-      background: #4c1d95;
-      color: #c4b5fd;
-    }
+  :global(.dark) .student-avatar {
+    background: #064e3b;
+    color: #6ee7b7;
+  }
 
-    .badge-blue {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
+  :global(.dark) .badge-purple {
+    background: #4c1d95;
+    color: #c4b5fd;
+  }
 
-    .badge-green {
-      background: #064e3b;
-      color: #6ee7b7;
-    }
+  :global(.dark) .badge-blue {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
 
-    .badge-gray {
-      background: #334155;
-      color: #cbd5e1;
-    }
+  :global(.dark) .badge-green {
+    background: #064e3b;
+    color: #6ee7b7;
+  }
 
-    .view-btn:hover {
-      background: #1e293b;
-    }
+  :global(.dark) .badge-gray {
+    background: #334155;
+    color: #cbd5e1;
+  }
 
-    .pagination-btn {
-      background: #1e293b;
-      border-color: #475569;
-      color: #cbd5e1;
-    }
+  :global(.dark) .view-btn {
+    color: #60a5fa;
+  }
 
-    .pagination-btn:hover {
-      background: #334155;
-      border-color: #64748b;
-    }
+  :global(.dark) .view-btn:hover {
+    background: #1e293b;
+    color: #93c5fd;
+  }
 
-    .empty-icon {
-      color: #475569;
-    }
+  :global(.dark) .pagination-btn {
+    background: #1e293b;
+    border-color: #475569;
+    color: #cbd5e1;
+  }
+
+  :global(.dark) .pagination-btn:hover {
+    background: #334155;
+    border-color: #64748b;
+  }
+
+  :global(.dark) .empty-icon {
+    color: #475569;
+  }
+
+  :global(.dark) .empty-state-content p {
+    color: #94a3b8;
   }
 </style>

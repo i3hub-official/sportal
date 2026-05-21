@@ -6,7 +6,8 @@
     BarChart3, BookOpen, Users, Filter, Save, 
     TrendingUp, Award, CheckCircle, AlertCircle,
     Loader2, Edit2, Eye, Download, Printer,
-    Search, ChevronDown, X
+    Search, ChevronDown, X, Upload, FileSpreadsheet,
+    User, GraduationCap, Clock, Target, Trophy
   } from 'lucide-svelte';
 
   let { data }: { data: PageData } = $props();
@@ -17,6 +18,11 @@
   let students        = $state<any[]>([]);
   let loading         = $state(false);
   let saving          = $state<Record<string, boolean>>({});
+  let selectedStudent = $state<any>(null);
+  let showStudentModal = $state(false);
+  let showBulkUpload = $state(false);
+  let bulkData = $state('');
+  let bulkUploading = $state(false);
 
   // Dropdown states
   let termDropdownOpen = $state(false);
@@ -30,7 +36,6 @@
   // Helper function to get term display name
   function getTermDisplayName(term: any): string {
     if (term.term) {
-      // Convert enum to display name
       const termMap: Record<string, string> = {
         'FIRST': 'First Term',
         'SECOND': 'Second Term',
@@ -41,7 +46,7 @@
     return term.name || 'Unknown Term';
   }
 
-  // Get selected items labels with safe fallbacks
+  // Get selected items labels
   let selectedTermLabel = $derived(() => {
     const term = data.terms?.find(t => t.id === selectedTerm);
     return term ? getTermDisplayName(term) : 'Select term…';
@@ -58,7 +63,7 @@
     return subject?.name || 'Select subject…';
   });
 
-  // Filtered lists with safe access
+  // Filtered lists
   let filteredTerms = $derived(() => {
     if (!data.terms) return [];
     return data.terms.filter(t => {
@@ -112,7 +117,6 @@
         }),
       });
       
-      // Refresh to show updated totals/grades
       await loadStudents();
     } catch (error) {
       console.error('Failed to save score:', error);
@@ -121,8 +125,77 @@
     }
   }
 
-  function getScoreColor(score: number | null, max: number) {
-    if (!score) return '';
+  async function uploadBulkResults() {
+    if (!bulkData.trim()) return;
+    bulkUploading = true;
+    
+    try {
+      // Parse CSV/TSV data
+      const lines = bulkData.trim().split('\n');
+      const headers = lines[0].split('\t');
+      const results = [];
+      
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split('\t');
+        const record: any = {};
+        headers.forEach((header, idx) => {
+          record[header.trim()] = values[idx]?.trim();
+        });
+        results.push(record);
+      }
+      
+      await fetch('/api/results/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          classId: selectedClass,
+          termId: selectedTerm,
+          subjectId: selectedSubject,
+          results
+        }),
+      });
+      
+      await loadStudents();
+      showBulkUpload = false;
+      bulkData = '';
+    } catch (error) {
+      console.error('Failed to upload bulk results:', error);
+    } finally {
+      bulkUploading = false;
+    }
+  }
+
+  function viewStudent(student: any) {
+    selectedStudent = student;
+    showStudentModal = true;
+  }
+
+  function closeModal() {
+    showStudentModal = false;
+    selectedStudent = null;
+  }
+
+  function calculateTotal(row: any) {
+    const ca1 = row.ca1Score || 0;
+    const ca2 = row.ca2Score || 0;
+    const assignment = row.assignmentScore || 0;
+    const exam = row.examScore || 0;
+    return ca1 + ca2 + assignment + exam;
+  }
+
+  function getGrade(score: number) {
+    if (score >= 75) return { grade: 'A1', color: 'grade-A' };
+    if (score >= 70) return { grade: 'B2', color: 'grade-B' };
+    if (score >= 65) return { grade: 'B3', color: 'grade-B' };
+    if (score >= 60) return { grade: 'C4', color: 'grade-C' };
+    if (score >= 55) return { grade: 'C5', color: 'grade-C' };
+    if (score >= 50) return { grade: 'C6', color: 'grade-C' };
+    if (score >= 45) return { grade: 'D7', color: 'grade-D' };
+    if (score >= 40) return { grade: 'E8', color: 'grade-E' };
+    return { grade: 'F9', color: 'grade-F' };
+  }
+
+  function getScoreColor(score: number, max: number) {
     const percentage = (score / max) * 100;
     if (percentage >= 70) return 'score-excellent';
     if (percentage >= 50) return 'score-good';
@@ -142,7 +215,6 @@
       : 0
   });
 
-  // Close dropdowns when clicking outside
   function handleClickOutside(e: MouseEvent) {
     const target = e.target as HTMLElement;
     if (!target.closest('.custom-dropdown')) {
@@ -152,7 +224,6 @@
     }
   }
 
-  // Select handlers
   function selectTerm(termId: string) {
     selectedTerm = termId;
     termDropdownOpen = false;
@@ -180,6 +251,27 @@
     subjectSearch = '';
     loadStudents();
   }
+
+  // Student performance stats for modal
+  const studentPerformance = $derived(() => {
+    if (!selectedStudent) return null;
+    const studentResults = students.filter(s => s.studentId === selectedStudent.id);
+    const subjects = studentResults.map(r => ({
+      name: r.subjectName,
+      ca1: r.ca1Score || 0,
+      ca2: r.ca2Score || 0,
+      assignment: r.assignmentScore || 0,
+      exam: r.examScore || 0,
+      total: r.totalScore || 0,
+      grade: r.grade
+    }));
+    
+    const totalScore = subjects.reduce((sum, s) => sum + s.total, 0);
+    const average = subjects.length > 0 ? (totalScore / subjects.length).toFixed(1) : 0;
+    const bestSubject = subjects.reduce((best, s) => s.total > best.total ? s : best, subjects[0] || { name: '—', total: 0 });
+    
+    return { subjects, average, bestSubject, totalSubjects: subjects.length };
+  });
 </script>
 
 <svelte:head>
@@ -197,6 +289,16 @@
           <h1 class="page-title">Results</h1>
           <p class="page-subtitle">Enter and manage student scores</p>
         </div>
+      </div>
+      <div class="header-actions">
+        <button onclick={() => showBulkUpload = true} class="bulk-upload-btn">
+          <Upload size={16} />
+          Bulk Upload
+        </button>
+        <button onclick={() => window.print()} class="print-btn">
+          <Printer size={16} />
+          Print
+        </button>
       </div>
     </div>
 
@@ -242,18 +344,13 @@
       </div>
     {/if}
 
-    <!-- Filters with Custom Dropdowns -->
+    <!-- Filters -->
     <div class="filters-card">
       <div class="filters-body">
-        <!-- Term Dropdown -->
         <div class="filter-group">
           <label class="filter-label">Term *</label>
           <div class="custom-dropdown" class:open={termDropdownOpen}>
-            <button 
-              type="button" 
-              class="dropdown-trigger"
-              onclick={(e) => { e.stopPropagation(); termDropdownOpen = !termDropdownOpen; }}
-            >
+            <button type="button" class="dropdown-trigger" onclick={(e) => { e.stopPropagation(); termDropdownOpen = !termDropdownOpen; }}>
               <span class="dropdown-value">{selectedTermLabel()}</span>
               <ChevronDown size={16} class="dropdown-icon" />
             </button>
@@ -261,19 +358,11 @@
               <div class="dropdown-menu">
                 <div class="dropdown-search">
                   <Search size={14} />
-                  <input 
-                    type="text" 
-                    placeholder="Search term..." 
-                    bind:value={termSearch}
-                    onclick={(e) => e.stopPropagation()}
-                  />
+                  <input type="text" placeholder="Search term..." bind:value={termSearch} onclick={(e) => e.stopPropagation()} />
                 </div>
                 <div class="dropdown-options">
                   {#each filteredTerms() as term}
-                    <div 
-                      class="dropdown-option {selectedTerm === term.id ? 'selected' : ''}"
-                      onclick={() => selectTerm(term.id)}
-                    >
+                    <div class="dropdown-option {selectedTerm === term.id ? 'selected' : ''}" onclick={() => selectTerm(term.id)}>
                       {getTermDisplayName(term)}
                     </div>
                   {:else}
@@ -285,15 +374,10 @@
           </div>
         </div>
 
-        <!-- Class Dropdown -->
         <div class="filter-group">
           <label class="filter-label">Class *</label>
           <div class="custom-dropdown" class:open={classDropdownOpen}>
-            <button 
-              type="button" 
-              class="dropdown-trigger"
-              onclick={(e) => { e.stopPropagation(); classDropdownOpen = !classDropdownOpen; }}
-            >
+            <button type="button" class="dropdown-trigger" onclick={(e) => { e.stopPropagation(); classDropdownOpen = !classDropdownOpen; }}>
               <span class="dropdown-value">{selectedClassLabel()}</span>
               <ChevronDown size={16} class="dropdown-icon" />
             </button>
@@ -301,19 +385,11 @@
               <div class="dropdown-menu">
                 <div class="dropdown-search">
                   <Search size={14} />
-                  <input 
-                    type="text" 
-                    placeholder="Search class..." 
-                    bind:value={classSearch}
-                    onclick={(e) => e.stopPropagation()}
-                  />
+                  <input type="text" placeholder="Search class..." bind:value={classSearch} onclick={(e) => e.stopPropagation()} />
                 </div>
                 <div class="dropdown-options">
                   {#each filteredClasses() as cls}
-                    <div 
-                      class="dropdown-option {selectedClass === cls.id ? 'selected' : ''}"
-                      onclick={() => selectClass(cls.id)}
-                    >
+                    <div class="dropdown-option {selectedClass === cls.id ? 'selected' : ''}" onclick={() => selectClass(cls.id)}>
                       {cls.name}
                     </div>
                   {:else}
@@ -325,22 +401,13 @@
           </div>
         </div>
 
-        <!-- Subject Dropdown -->
         <div class="filter-group">
           <label class="filter-label">Subject</label>
           <div class="custom-dropdown" class:open={subjectDropdownOpen}>
-            <button 
-              type="button" 
-              class="dropdown-trigger"
-              onclick={(e) => { e.stopPropagation(); subjectDropdownOpen = !subjectDropdownOpen; }}
-            >
+            <button type="button" class="dropdown-trigger" onclick={(e) => { e.stopPropagation(); subjectDropdownOpen = !subjectDropdownOpen; }}>
               <span class="dropdown-value">{selectedSubjectLabel()}</span>
               {#if selectedSubject}
-                <button 
-                  class="dropdown-clear" 
-                  onclick={(e) => { e.stopPropagation(); clearSubject(); }}
-                  aria-label="Clear subject"
-                >
+                <button class="dropdown-clear" onclick={(e) => { e.stopPropagation(); clearSubject(); }} aria-label="Clear subject">
                   <X size={14} />
                 </button>
               {/if}
@@ -350,25 +417,12 @@
               <div class="dropdown-menu">
                 <div class="dropdown-search">
                   <Search size={14} />
-                  <input 
-                    type="text" 
-                    placeholder="Search subject..." 
-                    bind:value={subjectSearch}
-                    onclick={(e) => e.stopPropagation()}
-                  />
+                  <input type="text" placeholder="Search subject..." bind:value={subjectSearch} onclick={(e) => e.stopPropagation()} />
                 </div>
                 <div class="dropdown-options">
-                  <div 
-                    class="dropdown-option {selectedSubject === '' ? 'selected' : ''}"
-                    onclick={() => selectSubject('')}
-                  >
-                    All subjects
-                  </div>
+                  <div class="dropdown-option {selectedSubject === '' ? 'selected' : ''}" onclick={() => selectSubject('')}>All subjects</div>
                   {#each filteredSubjects() as sub}
-                    <div 
-                      class="dropdown-option {selectedSubject === sub.id ? 'selected' : ''}"
-                      onclick={() => selectSubject(sub.id)}
-                    >
+                    <div class="dropdown-option {selectedSubject === sub.id ? 'selected' : ''}" onclick={() => selectSubject(sub.id)}>
                       {sub.name}
                     </div>
                   {:else}
@@ -394,69 +448,57 @@
             <tr>
               <th>Student</th>
               <th>Subject</th>
-              <th>CA (40)</th>
+              <th>CA1 (15)</th>
+              <th>CA2 (15)</th>
+              <th>ASS (10)</th>
               <th>Exam (60)</th>
               <th>Total</th>
               <th>Grade</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {#each students as row}
-              {@const caKey = `${row.studentId}-${row.subjectId}-ca`}
-              {@const examKey = `${row.studentId}-${row.subjectId}-exam`}
+              {@const total = calculateTotal(row)}
+              {@const gradeInfo = getGrade(total)}
               <tr class="result-row">
-                <td>
-                  <div class="student-info">
-                    <div class="student-avatar">
-                      {row.studentName?.charAt(0) || 'S'}
-                    </div>
-                    <a href="/results/{row.studentId}" class="student-link">
-                      {row.studentName}
-                    </a>
+                <td class="student-cell">
+                  <div class="student-info" onclick={() => viewStudent(row)} style="cursor: pointer;">
+                    <div class="student-avatar">{row.studentName?.charAt(0) || 'S'}</div>
+                    <span class="student-name">{row.studentName}</span>
                   </div>
                 </td>
                 <td class="subject-name">{row.subjectName}</td>
                 <td class="score-cell">
-                  <div class="score-input-wrapper">
-                    <input 
-                      type="number" 
-                      min="0" 
-                      max="40" 
-                      value={row.caScore ?? 0}
-                      onblur={e => saveScore(row.id, row.studentId, row.subjectId, 'caScore', (e.target as HTMLInputElement).value)}
-                      class="score-input ca-input" 
-                    />
-                    <span class="score-max">/40</span>
-                    {#if saving[caKey]}
-                      <Save size={12} class="saving-icon spinning" />
-                    {/if}
-                  </div>
+                  <input type="number" min="0" max="15" value={row.ca1Score ?? 0}
+                    onblur={e => saveScore(row.id, row.studentId, row.subjectId, 'ca1Score', e.target.value)}
+                    class="score-input ca-input" />
                 </td>
                 <td class="score-cell">
-                  <div class="score-input-wrapper">
-                    <input 
-                      type="number" 
-                      min="0" 
-                      max="60" 
-                      value={row.examScore ?? 0}
-                      onblur={e => saveScore(row.id, row.studentId, row.subjectId, 'examScore', (e.target as HTMLInputElement).value)}
-                      class="score-input exam-input" 
-                    />
-                    <span class="score-max">/60</span>
-                    {#if saving[examKey]}
-                      <Save size={12} class="saving-icon spinning" />
-                    {/if}
-                  </div>
+                  <input type="number" min="0" max="15" value={row.ca2Score ?? 0}
+                    onblur={e => saveScore(row.id, row.studentId, row.subjectId, 'ca2Score', e.target.value)}
+                    class="score-input ca-input" />
+                </td>
+                <td class="score-cell">
+                  <input type="number" min="0" max="10" value={row.assignmentScore ?? 0}
+                    onblur={e => saveScore(row.id, row.studentId, row.subjectId, 'assignmentScore', e.target.value)}
+                    class="score-input ass-input" />
+                </td>
+                <td class="score-cell">
+                  <input type="number" min="0" max="60" value={row.examScore ?? 0}
+                    onblur={e => saveScore(row.id, row.studentId, row.subjectId, 'examScore', e.target.value)}
+                    class="score-input exam-input" />
                 </td>
                 <td class="total-cell">
-                  <span class="total-score {getScoreColor(row.totalScore, 100)}">
-                    {row.totalScore ?? '—'}
-                  </span>
+                  <span class="total-score {getScoreColor(total, 100)}">{total}</span>
                 </td>
                 <td class="grade-cell">
-                  <span class="grade-badge {row.grade ? `grade-${row.grade.charAt(0)}` : ''}">
-                    {row.grade ?? '—'}
-                  </span>
+                  <span class="grade-badge {gradeInfo.color}">{gradeInfo.grade}</span>
+                </td>
+                <td class="action-cell">
+                  <button onclick={() => viewStudent(row)} class="view-student-btn" title="View Performance">
+                    <Eye size={16} />
+                  </button>
                 </td>
               </tr>
             {/each}
@@ -483,8 +525,141 @@
   </div>
 </div>
 
+<!-- Student Performance Modal -->
+{#if showStudentModal && selectedStudent}
+  <div class="modal-overlay" onclick={closeModal}>
+    <div class="modal-container" onclick={(e) => e.stopPropagation()}>
+      <div class="modal-header">
+        <div class="modal-title-section">
+          <div class="student-avatar-large">
+            {selectedStudent.studentName?.charAt(0) || 'S'}
+          </div>
+          <div>
+            <h2 class="modal-title">{selectedStudent.studentName}</h2>
+            <p class="modal-subtitle">{selectedStudent.admissionNo} · {selectedStudent.className}</p>
+          </div>
+        </div>
+        <button onclick={closeModal} class="modal-close">
+          <X size={20} />
+        </button>
+      </div>
+
+      {#if studentPerformance()}
+        {@const perf = studentPerformance()}
+        <div class="modal-body">
+          <!-- Quick Stats -->
+          <div class="quick-stats">
+            <div class="stat-card">
+              <Trophy size={20} />
+              <div>
+                <p class="stat-label">Average Score</p>
+                <p class="stat-number">{perf.average}%</p>
+              </div>
+            </div>
+            <div class="stat-card">
+              <BookOpen size={20} />
+              <div>
+                <p class="stat-label">Subjects</p>
+                <p class="stat-number">{perf.totalSubjects}</p>
+              </div>
+            </div>
+            <div class="stat-card">
+              <Award size={20} />
+              <div>
+                <p class="stat-label">Best Subject</p>
+                <p class="stat-number">{perf.bestSubject.name}</p>
+                <p class="stat-small">{perf.bestSubject.total}%</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Subjects Performance Table -->
+          <div class="subjects-performance">
+            <h3 class="section-title">Subject Performance</h3>
+            <div class="subjects-table-wrapper">
+              <table class="subjects-table">
+                <thead>
+                  <tr>
+                    <th>Subject</th>
+                    <th>CA1 (15)</th>
+                    <th>CA2 (15)</th>
+                    <th>ASS (10)</th>
+                    <th>Exam (60)</th>
+                    <th>Total</th>
+                    <th>Grade</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each perf.subjects as subject}
+                    <tr>
+                      <td class="subject-name-cell">{subject.name}</td>
+                      <td class="score-cell">{subject.ca1}</td>
+                      <td class="score-cell">{subject.ca2}</td>
+                      <td class="score-cell">{subject.assignment}</td>
+                      <td class="score-cell">{subject.exam}</td>
+                      <td class="total-cell">{subject.total}</td>
+                      <td class="grade-cell">
+                        <span class="grade-badge-small {getGrade(subject.total).color}">
+                          {getGrade(subject.total).grade}
+                        </span>
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      {/if}
+    </div>
+  </div>
+{/if}
+
+<!-- Bulk Upload Modal -->
+{#if showBulkUpload}
+  <div class="modal-overlay" onclick={() => showBulkUpload = false}>
+    <div class="modal-container bulk-modal" onclick={(e) => e.stopPropagation()}>
+      <div class="modal-header">
+        <div class="modal-title-section">
+          <Upload size={20} />
+          <h2 class="modal-title">Bulk Upload Results</h2>
+        </div>
+        <button onclick={() => showBulkUpload = false} class="modal-close">
+          <X size={20} />
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="bulk-info">
+          <FileSpreadsheet size={40} />
+          <p>Upload results using CSV/TSV format with the following columns:</p>
+          <pre class="format-example">
+Student Name	Subject	CA1	CA2	ASS	Exam
+John Doe	Mathematics	12	14	8	52
+Jane Smith	English	13	12	9	48</pre>
+          <p class="format-note">Use tab-separated values (TSV) or comma-separated (CSV)</p>
+        </div>
+
+        <textarea class="bulk-textarea" placeholder="Paste your data here..." bind:value={bulkData} rows={10}></textarea>
+
+        <div class="bulk-actions">
+          <button onclick={() => showBulkUpload = false} class="cancel-btn">Cancel</button>
+          <button onclick={uploadBulkResults} disabled={bulkUploading || !bulkData.trim()} class="upload-submit-btn">
+            {#if bulkUploading}
+              <Loader2 size={16} class="spinning" />
+              Uploading...
+            {:else}
+              <Upload size={16} />
+              Upload Results
+            {/if}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
-  /* ... keep all existing styles ... */
   * {
     margin: 0;
     padding: 0;
@@ -498,12 +673,17 @@
   }
 
   .results-wrapper {
-    max-width: 80rem;
+    max-width: 90rem;
     margin: 0 auto;
   }
 
   /* Page Header */
   .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
     margin-bottom: 1.5rem;
   }
 
@@ -535,6 +715,31 @@
     font-size: 0.875rem;
     color: #64748b;
     margin: 0;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  .bulk-upload-btn, .print-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: white;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .bulk-upload-btn:hover, .print-btn:hover {
+    background: #f1f5f9;
+    transform: translateY(-1px);
   }
 
   /* Summary Grid */
@@ -696,7 +901,7 @@
     background: white;
     border: 1px solid #e2e8f0;
     border-radius: 0.5rem;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     z-index: 50;
     overflow: hidden;
   }
@@ -716,10 +921,6 @@
     outline: none;
     font-size: 0.875rem;
     background: transparent;
-  }
-
-  .dropdown-search input::placeholder {
-    color: #cbd5e1;
   }
 
   .dropdown-options {
@@ -749,17 +950,6 @@
     font-size: 0.875rem;
     color: #94a3b8;
     text-align: center;
-  }
-
-  /* Loading State */
-  .loading-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 3rem;
-    gap: 1rem;
-    color: #64748b;
   }
 
   /* Table */
@@ -802,7 +992,10 @@
     background: #f8fafc;
   }
 
-  /* Student Info */
+  .student-cell {
+    cursor: pointer;
+  }
+
   .student-info {
     display: flex;
     align-items: center;
@@ -822,16 +1015,9 @@
     font-weight: 600;
   }
 
-  .student-link {
+  .student-name {
     font-weight: 500;
-    color: #2563eb;
-    text-decoration: none;
-    transition: color 0.15s ease;
-  }
-
-  .student-link:hover {
-    color: #1d4ed8;
-    text-decoration: underline;
+    color: #0f172a;
   }
 
   .subject-name {
@@ -841,14 +1027,7 @@
 
   /* Score Inputs */
   .score-cell {
-    width: 110px;
-  }
-
-  .score-input-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    position: relative;
+    width: 85px;
   }
 
   .score-input {
@@ -867,21 +1046,13 @@
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
   }
 
-  .score-max {
-    font-size: 0.7rem;
-    color: #94a3b8;
-  }
+  .ca-input { border-left: 3px solid #3b82f6; }
+  .ass-input { border-left: 3px solid #10b981; }
+  .exam-input { border-left: 3px solid #ef4444; }
 
-  .saving-icon {
-    position: absolute;
-    right: -1rem;
-    color: #10b981;
-  }
-
-  /* Total Score */
   .total-cell {
     font-weight: 600;
-    width: 80px;
+    width: 70px;
   }
 
   .total-score {
@@ -918,29 +1089,319 @@
     border-radius: 0.375rem;
     font-size: 0.75rem;
     font-weight: 600;
-    min-width: 40px;
+    min-width: 45px;
     text-align: center;
   }
 
-  .grade-A {
-    background: #ecfdf5;
-    color: #065f46;
+  .grade-A, .grade-A1 { background: #ecfdf5; color: #065f46; }
+  .grade-B, .grade-B2, .grade-B3 { background: #eff6ff; color: #1d4ed8; }
+  .grade-C, .grade-C4, .grade-C5, .grade-C6 { background: #fffbeb; color: #92400e; }
+  .grade-D, .grade-D7, .grade-E, .grade-E8 { background: #fef2f2; color: #991b1b; }
+  .grade-F, .grade-F9 { background: #fef2f2; color: #dc2626; }
+
+  .action-cell {
+    width: 50px;
   }
 
-  .grade-B {
+  .view-student-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.375rem;
+    background: transparent;
+    color: #2563eb;
+    border: none;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .view-student-btn:hover {
     background: #eff6ff;
+  }
+
+  /* Modal Styles */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+
+  .modal-container {
+    background: white;
+    border-radius: 1rem;
+    width: 100%;
+    max-width: 800px;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: slideUp 0.2s ease-out;
+  }
+
+  .modal-container.bulk-modal {
+    max-width: 600px;
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .modal-title-section {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .student-avatar-large {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background: #dbeafe;
     color: #1d4ed8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: 700;
   }
 
-  .grade-C {
-    background: #fffbeb;
-    color: #92400e;
+  .modal-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #0f172a;
   }
 
-  .grade-D,
-  .grade-E {
-    background: #fef2f2;
-    color: #991b1b;
+  .modal-subtitle {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-top: 0.125rem;
+  }
+
+  .modal-close {
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f1f5f9;
+    border: none;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    color: #64748b;
+    transition: all 0.15s ease;
+  }
+
+  .modal-close:hover {
+    background: #e2e8f0;
+  }
+
+  .modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+  }
+
+  /* Quick Stats */
+  .quick-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .stat-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: #f8fafc;
+    border-radius: 0.75rem;
+  }
+
+  .stat-card svg {
+    color: #2563eb;
+  }
+
+  .stat-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+  }
+
+  .stat-number {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .stat-small {
+    font-size: 0.7rem;
+    color: #64748b;
+  }
+
+  /* Subjects Performance Table */
+  .section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 1rem;
+  }
+
+  .subjects-table-wrapper {
+    overflow-x: auto;
+  }
+
+  .subjects-table {
+    width: 100%;
+    font-size: 0.875rem;
+    border-collapse: collapse;
+  }
+
+  .subjects-table th {
+    padding: 0.5rem;
+    text-align: left;
+    font-weight: 600;
+    color: #475569;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .subjects-table td {
+    padding: 0.5rem;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .subject-name-cell {
+    font-weight: 500;
+    color: #0f172a;
+  }
+
+  .grade-badge-small {
+    display: inline-block;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    min-width: 35px;
+    text-align: center;
+  }
+
+  /* Bulk Upload */
+  .bulk-info {
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .bulk-info svg {
+    color: #94a3b8;
+    margin-bottom: 0.5rem;
+  }
+
+  .format-example {
+    background: #f1f5f9;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.7rem;
+    font-family: monospace;
+    margin: 0.75rem 0;
+    overflow-x: auto;
+  }
+
+  .format-note {
+    font-size: 0.7rem;
+    color: #94a3b8;
+  }
+
+  .bulk-textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-family: monospace;
+    resize: vertical;
+  }
+
+  .bulk-textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  }
+
+  .bulk-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 1rem;
+  }
+
+  .cancel-btn {
+    padding: 0.5rem 1rem;
+    background: white;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .cancel-btn:hover {
+    background: #f8fafc;
+  }
+
+  .upload-submit-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .upload-submit-btn:hover:not(:disabled) {
+    background: #1d4ed8;
+    transform: translateY(-1px);
+  }
+
+  .upload-submit-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* Loading State */
+  .loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    gap: 1rem;
+    color: #64748b;
   }
 
   /* Empty State */
@@ -980,12 +1441,10 @@
   }
 
   @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
+    to { transform: rotate(360deg); }
   }
 
-  /* Responsive Design */
+  /* Responsive */
   @media (max-width: 768px) {
     .results-container {
       padding: 1rem;
@@ -1019,161 +1478,119 @@
     }
 
     .score-input {
-      width: 60px;
-      font-size: 0.75rem;
+      width: 55px;
+      font-size: 0.7rem;
+    }
+
+    .quick-stats {
+      grid-template-columns: 1fr;
+    }
+
+    .modal-container {
+      margin: 1rem;
+      max-height: 95vh;
     }
   }
 
   /* Dark Mode */
-  @media (prefers-color-scheme: dark) {
-    .results-container {
-      background: #0f172a;
-    }
+  :global(.dark) .results-container {
+    background: #0f172a;
+  }
 
-    .page-title {
-      color: #f8fafc;
-    }
+  :global(.dark) .page-title {
+    color: #f8fafc;
+  }
 
-    .title-icon {
-      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-    }
+  :global(.dark) .title-icon {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  }
 
-    .summary-card,
-    .filters-card,
-    .table-wrapper,
-    .empty-state {
-      background: #1e293b;
-      border-color: #334155;
-    }
+  :global(.dark) .summary-card,
+  :global(.dark) .filters-card,
+  :global(.dark) .table-wrapper,
+  :global(.dark) .empty-state,
+  :global(.dark) .modal-container {
+    background: #1e293b;
+    border-color: #334155;
+  }
 
-    .summary-value {
-      color: #f8fafc;
-    }
+  :global(.dark) .summary-value {
+    color: #f8fafc;
+  }
 
-    .summary-icon {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
+  :global(.dark) .summary-icon {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
 
-    .dropdown-trigger {
-      background: #1e293b;
-      border-color: #475569;
-      color: #f8fafc;
-    }
+  :global(.dark) .dropdown-trigger {
+    background: #1e293b;
+    border-color: #475569;
+    color: #f8fafc;
+  }
 
-    .dropdown-trigger:hover {
-      border-color: #64748b;
-    }
+  :global(.dark) .dropdown-menu {
+    background: #1e293b;
+    border-color: #475569;
+  }
 
-    .dropdown-menu {
-      background: #1e293b;
-      border-color: #475569;
-    }
+  :global(.dark) .dropdown-option {
+    color: #cbd5e1;
+  }
 
-    .dropdown-search {
-      border-bottom-color: #475569;
-    }
+  :global(.dark) .dropdown-option:hover {
+    background: #334155;
+  }
 
-    .dropdown-search input {
-      color: #f8fafc;
-    }
+  :global(.dark) .dropdown-option.selected {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
 
-    .dropdown-search input::placeholder {
-      color: #64748b;
-    }
+  :global(.dark) .results-table thead {
+    background: #0f172a;
+    border-bottom-color: #334155;
+  }
 
-    .dropdown-option {
-      color: #cbd5e1;
-    }
+  :global(.dark) .results-table th {
+    color: #94a3b8;
+  }
 
-    .dropdown-option:hover {
-      background: #334155;
-    }
+  :global(.dark) .results-table td {
+    border-bottom-color: #334155;
+  }
 
-    .dropdown-option.selected {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
+  :global(.dark) .result-row:hover td {
+    background: #0f172a;
+  }
 
-    .results-table thead {
-      background: #0f172a;
-      border-bottom-color: #334155;
-    }
+  :global(.dark) .student-name {
+    color: #f8fafc;
+  }
 
-    .results-table th {
-      color: #94a3b8;
-    }
+  :global(.dark) .subject-name {
+    color: #cbd5e1;
+  }
 
-    .results-table td {
-      border-bottom-color: #334155;
-    }
+  :global(.dark) .score-input {
+    background: #1e293b;
+    border-color: #475569;
+    color: #f8fafc;
+  }
 
-    .result-row:hover td {
-      background: #0f172a;
-    }
+  :global(.dark) .stat-card {
+    background: #0f172a;
+  }
 
-    .student-avatar {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
+  :global(.dark) .stat-number {
+    color: #f8fafc;
+  }
 
-    .subject-name {
-      color: #cbd5e1;
-    }
+  :global(.dark) .section-title {
+    color: #f8fafc;
+  }
 
-    .score-input {
-      background: #1e293b;
-      border-color: #475569;
-      color: #f8fafc;
-    }
-
-    .score-input:focus {
-      border-color: #3b82f6;
-    }
-
-    .score-excellent {
-      background: #064e3b;
-      color: #6ee7b7;
-    }
-
-    .score-good {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
-
-    .score-average {
-      background: #78350f;
-      color: #fde68a;
-    }
-
-    .score-poor {
-      background: #7f1d1d;
-      color: #fecaca;
-    }
-
-    .grade-A {
-      background: #064e3b;
-      color: #6ee7b7;
-    }
-
-    .grade-B {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
-
-    .grade-C {
-      background: #78350f;
-      color: #fde68a;
-    }
-
-    .grade-D,
-    .grade-E {
-      background: #7f1d1d;
-      color: #fecaca;
-    }
-
-    .empty-icon {
-      color: #475569;
-    }
+  :global(.dark) .subject-name-cell {
+    color: #f8fafc;
   }
 </style>

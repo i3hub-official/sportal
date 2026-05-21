@@ -785,84 +785,165 @@
   }
 
   /* Dark Mode */
-  @media (prefers-color-scheme: dark) {
-    .class-detail-container {
-      background: #0f172a;
-    }
+  :global(.dark) .class-detail-container {
+    background: #0f172a;
+  }
 
-    .page-title {
-      color: #f8fafc;
-    }
+  :global(.dark) .page-title {
+    color: #f8fafc;
+  }
 
-    .title-icon {
-      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-    }
+  :global(.dark) .page-subtitle {
+    color: #94a3b8;
+  }
 
-    .action-btn {
-      background: #1e293b;
-      border-color: #334155;
-      color: #cbd5e1;
-    }
+  :global(.dark) .title-icon {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  }
 
-    .action-btn:hover {
-      background: #334155;
-    }
+  :global(.dark) .action-btn {
+    background: #1e293b;
+    border-color: #334155;
+    color: #cbd5e1;
+  }
 
-    .detail-card {
-      background: #1e293b;
-      border-color: #334155;
-    }
+  :global(.dark) .action-btn:hover {
+    background: #334155;
+  }
 
-    .info-value {
-      color: #f8fafc;
-    }
+  :global(.dark) .edit-btn {
+    background: #1e2d4a;
+    border-color: #2d4a7a;
+    color: #93c5fd;
+  }
 
-    .badge-purple {
-      background: #4c1d95;
-      color: #c4b5fd;
-    }
+  :global(.dark) .edit-btn:hover {
+    background: #2d4a7a;
+  }
 
-    .badge-blue {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
+  :global(.dark) .success-alert {
+    background: #064e3b;
+    border-color: #065f46;
+    color: #6ee7b7;
+  }
 
-    .badge-green {
-      background: #064e3b;
-      color: #6ee7b7;
-    }
+  :global(.dark) .error-alert {
+    background: #7f1d1d;
+    border-color: #991b1b;
+    color: #fecaca;
+  }
 
-    .student-card {
-      background: #0f172a;
-      border-color: #334155;
-    }
+  :global(.dark) .detail-card {
+    background: #1e293b;
+    border-color: #334155;
+  }
 
-    .student-card:hover {
-      background: #1e293b;
-    }
+  :global(.dark) .info-value {
+    color: #f8fafc;
+  }
 
-    .student-name {
-      color: #f8fafc;
-    }
+  :global(.dark) .info-label {
+    color: #64748b;
+  }
 
-    .slot-item {
-      background: #0f172a;
-    }
+  :global(.dark) .badge-purple {
+    background: #4c1d95;
+    color: #c4b5fd;
+  }
 
-    .form-input {
-      background: #1e293b;
-      border-color: #475569;
-      color: #f8fafc;
-    }
+  :global(.dark) .badge-blue {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
 
-    .cancel-btn {
-      background: #1e293b;
-      border-color: #475569;
-      color: #cbd5e1;
-    }
+  :global(.dark) .badge-green {
+    background: #064e3b;
+    color: #6ee7b7;
+  }
 
-    .cancel-btn:hover {
-      background: #334155;
-    }
+  :global(.dark) .badge-gray {
+    background: #334155;
+    color: #cbd5e1;
+  }
+
+  :global(.dark) .capacity-bar {
+    background: #334155;
+  }
+
+  :global(.dark) .student-card {
+    background: #0f172a;
+    border-color: #334155;
+  }
+
+  :global(.dark) .student-card:hover {
+    background: #1e293b;
+    border-color: #2d4a7a;
+  }
+
+  :global(.dark) .student-name {
+    color: #f8fafc;
+  }
+
+  :global(.dark) .student-admission {
+    color: #94a3b8;
+  }
+
+  :global(.dark) .student-avatar {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
+
+  :global(.dark) .empty-students {
+    color: #64748b;
+  }
+
+  :global(.dark) .empty-students svg {
+    color: #475569;
+  }
+
+  :global(.dark) .slot-item {
+    background: #0f172a;
+  }
+
+  :global(.dark) .slot-subject {
+    color: #f8fafc;
+  }
+
+  :global(.dark) .slot-teacher {
+    color: #94a3b8;
+  }
+
+  :global(.dark) .form-label {
+    color: #94a3b8;
+  }
+
+  :global(.dark) .form-input {
+    background: #1e293b;
+    border-color: #475569;
+    color: #f8fafc;
+  }
+
+  :global(.dark) .form-input:focus {
+    border-color: #3b82f6;
+  }
+
+  :global(.dark) .cancel-btn {
+    background: #1e293b;
+    border-color: #475569;
+    color: #cbd5e1;
+  }
+
+  :global(.dark) .cancel-btn:hover {
+    background: #334155;
+  }
+
+  :global(.dark) .form-actions,
+  :global(.dark) .info-grid,
+  :global(.dark) .students-section {
+    border-color: #334155;
+  }
+
+  :global(.dark) .view-all-link {
+    color: #60a5fa;
   }
 </style>

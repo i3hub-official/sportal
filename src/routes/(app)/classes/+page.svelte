@@ -57,7 +57,6 @@
   }
 
   function selectTeacher(classId: string, teacherId: string) {
-    // Submit the form to assign teacher
     const form = document.getElementById(`teacher-form-${classId}`) as HTMLFormElement;
     const select = form?.querySelector('select[name="classTeacherId"]') as HTMLSelectElement;
     if (select) {
@@ -783,122 +782,157 @@
   }
 
   /* Dark Mode */
-  @media (prefers-color-scheme: dark) {
-    .classes-container {
-      background: #0f172a;
-    }
+  :global(.dark) .classes-container {
+    background: #0f172a;
+  }
 
-    .page-title {
-      color: #f8fafc;
-    }
+  :global(.dark) .page-title {
+    color: #f8fafc;
+  }
 
-    .title-icon {
-      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-    }
+  :global(.dark) .page-subtitle {
+    color: #94a3b8;
+  }
 
-    .add-form-card,
-    .class-card {
-      background: #1e293b;
-      border-color: #334155;
-    }
+  :global(.dark) .title-icon {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  }
 
-    .card-header {
-      color: #f8fafc;
-      border-bottom-color: #334155;
-    }
+  :global(.dark) .add-class-btn {
+    background: #3b82f6;
+  }
 
-    .form-input {
-      background: #1e293b;
-      border-color: #475569;
-      color: #f8fafc;
-    }
+  :global(.dark) .add-class-btn:hover {
+    background: #2563eb;
+  }
 
-    .form-input:focus {
-      border-color: #3b82f6;
-    }
+  :global(.dark) .error-alert {
+    background: #7f1d1d;
+    border-color: #991b1b;
+    color: #fecaca;
+  }
 
-    .class-name {
-      color: #f8fafc;
-    }
+  :global(.dark) .add-form-card,
+  :global(.dark) .class-card {
+    background: #1e293b;
+    border-color: #334155;
+  }
 
-    .teacher-name {
-      color: #f8fafc;
-    }
+  :global(.dark) .card-header {
+    color: #f8fafc;
+    border-bottom-color: #334155;
+  }
 
-    .class-teacher {
-      border-top-color: #334155;
-      border-bottom-color: #334155;
-    }
+  :global(.dark) .form-input {
+    background: #1e293b;
+    border-color: #475569;
+    color: #f8fafc;
+  }
 
-    .dropdown-trigger {
-      background: #1e293b;
-      border-color: #475569;
-      color: #f8fafc;
-    }
+  :global(.dark) .form-input:focus {
+    border-color: #3b82f6;
+  }
 
-    .dropdown-menu {
-      background: #1e293b;
-      border-color: #475569;
-    }
+  :global(.dark) .class-name {
+    color: #f8fafc;
+  }
 
-    .dropdown-search {
-      border-bottom-color: #475569;
-    }
+  :global(.dark) .student-count {
+    color: #94a3b8;
+  }
 
-    .dropdown-search input {
-      color: #f8fafc;
-    }
+  :global(.dark) .teacher-name {
+    color: #f8fafc;
+  }
 
-    .dropdown-search input::placeholder {
-      color: #64748b;
-    }
+  :global(.dark) .teacher-label {
+    color: #94a3b8;
+  }
 
-    .dropdown-option {
-      color: #cbd5e1;
-    }
+  :global(.dark) .class-teacher {
+    border-top-color: #334155;
+    border-bottom-color: #334155;
+  }
 
-    .dropdown-option:hover {
-      background: #334155;
-    }
+  :global(.dark) .dropdown-trigger {
+    background: #1e293b;
+    border-color: #475569;
+    color: #f8fafc;
+  }
 
-    .dropdown-option.selected {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
+  :global(.dark) .dropdown-menu {
+    background: #1e293b;
+    border-color: #475569;
+  }
 
-    .view-link {
-      background: #0f172a;
-    }
+  :global(.dark) .dropdown-search {
+    border-bottom-color: #475569;
+  }
 
-    .view-link:hover {
-      background: #1e293b;
-    }
+  :global(.dark) .dropdown-search input {
+    color: #f8fafc;
+  }
 
-    .level-header {
-      border-bottom-color: #334155;
-    }
+  :global(.dark) .dropdown-search input::placeholder {
+    color: #64748b;
+  }
 
-    .level-title {
-      color: #f8fafc;
-    }
+  :global(.dark) .dropdown-option {
+    color: #cbd5e1;
+  }
 
-    .level-count {
-      background: #334155;
-    }
+  :global(.dark) .dropdown-option:hover {
+    background: #334155;
+  }
 
-    .badge-purple {
-      background: #4c1d95;
-      color: #c4b5fd;
-    }
+  :global(.dark) .dropdown-option.selected {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
 
-    .badge-blue {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
+  :global(.dark) .view-link {
+    background: #0f172a;
+    color: #60a5fa;
+  }
 
-    .badge-green {
-      background: #064e3b;
-      color: #6ee7b7;
-    }
+  :global(.dark) .view-link:hover {
+    background: #1e293b;
+    color: #93c5fd;
+  }
+
+  :global(.dark) .level-header {
+    border-bottom-color: #334155;
+  }
+
+  :global(.dark) .level-title {
+    color: #f8fafc;
+  }
+
+  :global(.dark) .level-count {
+    background: #334155;
+    color: #94a3b8;
+  }
+
+  :global(.dark) .badge-purple {
+    background: #4c1d95;
+    color: #c4b5fd;
+  }
+
+  :global(.dark) .badge-blue {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
+
+  :global(.dark) .badge-green {
+    background: #064e3b;
+    color: #6ee7b7;
+  }
+
+  :global(.dark) .create-btn {
+    background: #3b82f6;
+  }
+
+  :global(.dark) .create-btn:hover {
+    background: #2563eb;
   }
 </style>

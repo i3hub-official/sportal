@@ -139,8 +139,7 @@
                 </form>
               </td>
             </tr>
-          {/each}
-          
+          {/each}          
           {#if data.subjects.length === 0}
             <tr class="empty-row">
               <td colspan="4" class="empty-state">
@@ -618,108 +617,146 @@
   }
 
   /* Dark Mode */
-  @media (prefers-color-scheme: dark) {
-    .subjects-container {
-      background: #0f172a;
-    }
+  :global(.dark) .subjects-container {
+    background: #0f172a;
+  }
 
-    .page-title {
-      color: #f8fafc;
-    }
+  :global(.dark) .page-title {
+    color: #f8fafc;
+  }
 
-    .title-icon {
-      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-    }
+  :global(.dark) .page-subtitle {
+    color: #94a3b8;
+  }
 
-    .add-subject-btn {
-      background: #3b82f6;
-    }
+  :global(.dark) .title-icon {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  }
 
-    .add-subject-btn:hover {
-      background: #2563eb;
-    }
+  :global(.dark) .add-subject-btn {
+    background: #3b82f6;
+  }
 
-    .add-form-card,
-    .table-wrapper,
-    .summary-footer {
-      background: #1e293b;
-      border-color: #334155;
-    }
+  :global(.dark) .add-subject-btn:hover {
+    background: #2563eb;
+  }
 
-    .card-header {
-      color: #f8fafc;
-      border-bottom-color: #334155;
-    }
+  :global(.dark) .error-alert {
+    background: #7f1d1d;
+    border-color: #991b1b;
+    color: #fecaca;
+  }
 
-    .form-input {
-      background: #1e293b;
-      border-color: #475569;
-      color: #f8fafc;
-    }
+  :global(.dark) .success-alert {
+    background: #064e3b;
+    border-color: #065f46;
+    color: #6ee7b7;
+  }
 
-    .form-input::placeholder {
-      color: #64748b;
-    }
+  :global(.dark) .add-form-card,
+  :global(.dark) .table-wrapper,
+  :global(.dark) .summary-footer {
+    background: #1e293b;
+    border-color: #334155;
+  }
 
-    .form-input:focus {
-      border-color: #3b82f6;
-    }
+  :global(.dark) .card-header {
+    color: #f8fafc;
+    border-bottom-color: #334155;
+  }
 
-    .subjects-table thead {
-      background: #0f172a;
-      border-bottom-color: #334155;
-    }
+  :global(.dark) .form-label {
+    color: #94a3b8;
+  }
 
-    .subjects-table th {
-      color: #94a3b8;
-    }
+  :global(.dark) .form-input {
+    background: #1e293b;
+    border-color: #475569;
+    color: #f8fafc;
+  }
 
-    .subjects-table td {
-      border-bottom-color: #334155;
-    }
+  :global(.dark) .form-input::placeholder {
+    color: #64748b;
+  }
 
-    .subject-row:hover td {
-      background: #0f172a;
-    }
+  :global(.dark) .form-input:focus {
+    border-color: #3b82f6;
+  }
 
-    .subject-icon {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
+  :global(.dark) .subjects-table thead {
+    background: #0f172a;
+    border-bottom-color: #334155;
+  }
 
-    .subject-name {
-      color: #f8fafc;
-    }
+  :global(.dark) .subjects-table th {
+    color: #94a3b8;
+  }
 
-    .subject-code {
-      background: #334155;
-      color: #cbd5e1;
-    }
+  :global(.dark) .subjects-table td {
+    border-bottom-color: #334155;
+  }
 
-    .status-active {
-      background: #064e3b;
-      color: #6ee7b7;
-    }
+  :global(.dark) .subject-row:hover td {
+    background: #0f172a;
+  }
 
-    .status-inactive {
-      background: #7f1d1d;
-      color: #fecaca;
-    }
+  :global(.dark) .subject-icon {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
 
-    .activate-btn:hover {
-      background: #064e3b;
-    }
+  :global(.dark) .subject-name {
+    color: #f8fafc;
+  }
 
-    .deactivate-btn:hover {
-      background: #7f1d1d;
-    }
+  :global(.dark) .subject-code {
+    background: #334155;
+    color: #cbd5e1;
+  }
 
-    .stat-value {
-      color: #f8fafc;
-    }
+  :global(.dark) .status-active {
+    background: #064e3b;
+    color: #6ee7b7;
+  }
 
-    .empty-icon {
-      color: #475569;
-    }
+  :global(.dark) .status-inactive {
+    background: #7f1d1d;
+    color: #fecaca;
+  }
+
+  :global(.dark) .activate-btn {
+    color: #34d399;
+  }
+
+  :global(.dark) .activate-btn:hover {
+    background: #064e3b;
+  }
+
+  :global(.dark) .deactivate-btn {
+    color: #f87171;
+  }
+
+  :global(.dark) .deactivate-btn:hover {
+    background: #7f1d1d;
+  }
+
+  :global(.dark) .stat-label {
+    color: #94a3b8;
+  }
+
+  :global(.dark) .stat-value {
+    color: #f8fafc;
+  }
+
+  :global(.dark) .empty-icon {
+    color: #475569;
+  }
+
+  :global(.dark) .empty-state-content p {
+    color: #94a3b8;
+  }
+
+  :global(.dark) .empty-hint {
+    color: #64748b;
   }
 </style>

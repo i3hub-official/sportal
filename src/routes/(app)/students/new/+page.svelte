@@ -643,89 +643,109 @@
   }
 
   /* Dark Mode */
-  @media (prefers-color-scheme: dark) {
-    .enrol-container {
-      background: #0f172a;
-    }
+  :global(.dark) .enrol-container {
+    background: #0f172a;
+  }
 
-    .page-title {
-      color: #f8fafc;
-    }
+  :global(.dark) .page-title {
+    color: #f8fafc;
+  }
 
-    .page-subtitle {
-      color: #94a3b8;
-    }
+  :global(.dark) .page-subtitle {
+    color: #94a3b8;
+  }
 
-    .title-icon {
-      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-    }
+  :global(.dark) .title-icon {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  }
 
-    .back-btn {
-      background: #1e293b;
-      border-color: #334155;
-      color: #cbd5e1;
-    }
+  :global(.dark) .back-btn {
+    background: #1e293b;
+    border-color: #334155;
+    color: #cbd5e1;
+  }
 
-    .back-btn:hover {
-      background: #334155;
-    }
+  :global(.dark) .back-btn:hover {
+    background: #334155;
+  }
 
-    .form-card {
-      background: #1e293b;
-      border-color: #334155;
-    }
+  :global(.dark) .error-alert {
+    background: #7f1d1d;
+    border-color: #991b1b;
+    color: #fecaca;
+  }
 
-    .photo-placeholder {
-      background: #334155;
-      border-color: #475569;
-    }
+  :global(.dark) .success-alert {
+    background: #064e3b;
+    border-color: #065f46;
+    color: #6ee7b7;
+  }
 
-    .upload-label {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
+  :global(.dark) .form-card {
+    background: #1e293b;
+    border-color: #334155;
+  }
 
-    .upload-label:hover {
-      background: #2d4a7a;
-    }
+  :global(.dark) .photo-placeholder {
+    background: #334155;
+    border-color: #475569;
+    color: #64748b;
+  }
 
-    .form-label {
-      color: #cbd5e1;
-    }
+  :global(.dark) .upload-label {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
 
-    .form-input,
-    .form-textarea {
-      background: #1e293b;
-      border-color: #475569;
-      color: #f8fafc;
-    }
+  :global(.dark) .upload-label:hover {
+    background: #2d4a7a;
+  }
 
-    .form-input::placeholder,
-    .form-textarea::placeholder {
-      color: #64748b;
-    }
+  :global(.dark) .form-label {
+    color: #cbd5e1;
+  }
 
-    .form-input:focus,
-    .form-textarea:focus {
-      border-color: #3b82f6;
-    }
+  :global(.dark) .form-label :global(svg) {
+    color: #94a3b8;
+  }
 
-    .cancel-btn {
-      background: #1e293b;
-      border-color: #475569;
-      color: #cbd5e1;
-    }
+  :global(.dark) .form-input,
+  :global(.dark) .form-textarea {
+    background: #1e293b;
+    border-color: #475569;
+    color: #f8fafc;
+  }
 
-    .cancel-btn:hover {
-      background: #334155;
-    }
+  :global(.dark) .form-input::placeholder,
+  :global(.dark) .form-textarea::placeholder {
+    color: #64748b;
+  }
 
-    .photo-section {
-      border-bottom-color: #334155;
-    }
+  :global(.dark) .form-input:focus,
+  :global(.dark) .form-textarea:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  }
 
-    .form-actions {
-      border-top-color: #334155;
-    }
+  :global(.dark) .cancel-btn {
+    background: #1e293b;
+    border-color: #475569;
+    color: #cbd5e1;
+  }
+
+  :global(.dark) .cancel-btn:hover {
+    background: #334155;
+  }
+
+  :global(.dark) .photo-section {
+    border-bottom-color: #334155;
+  }
+
+  :global(.dark) .form-actions {
+    border-top-color: #334155;
+  }
+
+  :global(.dark) .submit-btn:disabled {
+    background: #475569;
   }
 </style>

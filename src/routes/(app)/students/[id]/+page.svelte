@@ -771,10 +771,6 @@
       grid-template-columns: 1fr;
     }
 
-    .full-width {
-      grid-column: span 1;
-    }
-
     .form-actions {
       flex-direction: column;
     }
@@ -787,114 +783,164 @@
   }
 
   /* Dark Mode */
-  @media (prefers-color-scheme: dark) {
-    .student-detail-container {
-      background: #0f172a;
-    }
+  :global(.dark) .student-detail-container {
+    background: #0f172a;
+  }
 
-    .page-title {
-      color: #f8fafc;
-    }
+  :global(.dark) .page-title {
+    color: #f8fafc;
+  }
 
-    .page-subtitle {
-      color: #94a3b8;
-    }
+  :global(.dark) .page-subtitle {
+    color: #94a3b8;
+  }
 
-    .title-icon {
-      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-    }
+  :global(.dark) .title-icon {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  }
 
-    .action-btn {
-      background: #1e293b;
-      border-color: #334155;
-      color: #cbd5e1;
-    }
+  :global(.dark) .action-btn {
+    background: #1e293b;
+    border-color: #334155;
+    color: #cbd5e1;
+  }
 
-    .action-btn:hover {
-      background: #334155;
-    }
+  :global(.dark) .action-btn:hover {
+    background: #334155;
+  }
 
-    .profile-card {
-      background: #1e293b;
-      border-color: #334155;
-    }
+  :global(.dark) .results-btn {
+    background: #064e3b;
+    border-color: #065f46;
+    color: #6ee7b7;
+  }
 
-    .avatar-placeholder {
-      background: #334155;
-      border-color: #475569;
-    }
+  :global(.dark) .results-btn:hover {
+    background: #0d5b46;
+  }
 
-    .avatar-image {
-      border-color: #334155;
-    }
+  :global(.dark) .edit-btn {
+    background: #1e2d4a;
+    border-color: #2d4a7a;
+    color: #93c5fd;
+  }
 
-    .info-value {
-      color: #f8fafc;
-    }
+  :global(.dark) .edit-btn:hover {
+    background: #2d4a7a;
+  }
 
-    .badge-purple {
-      background: #4c1d95;
-      color: #c4b5fd;
-    }
+  :global(.dark) .success-alert {
+    background: #064e3b;
+    border-color: #065f46;
+    color: #6ee7b7;
+  }
 
-    .badge-blue {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
+  :global(.dark) .error-alert {
+    background: #7f1d1d;
+    border-color: #991b1b;
+    color: #fecaca;
+  }
 
-    .badge-green {
-      background: #064e3b;
-      color: #6ee7b7;
-    }
+  :global(.dark) .profile-card {
+    background: #1e293b;
+    border-color: #334155;
+  }
 
-    .form-label {
-      color: #cbd5e1;
-    }
+  :global(.dark) .avatar-placeholder {
+    background: #334155;
+    border-color: #475569;
+    color: #64748b;
+  }
 
-    .form-input,
-    .form-textarea {
-      background: #1e293b;
-      border-color: #475569;
-      color: #f8fafc;
-    }
+  :global(.dark) .avatar-image {
+    border-color: #334155;
+  }
 
-    .form-input::placeholder,
-    .form-textarea::placeholder {
-      color: #64748b;
-    }
+  :global(.dark) .info-value {
+    color: #f8fafc;
+  }
 
-    .form-input:focus,
-    .form-textarea:focus {
-      border-color: #3b82f6;
-    }
+  :global(.dark) .info-label {
+    color: #64748b;
+  }
 
-    .upload-label {
-      background: #1e2d4a;
-      color: #93c5fd;
-    }
+  :global(.dark) .admission-number {
+    color: #60a5fa;
+  }
 
-    .upload-label:hover {
-      background: #2d4a7a;
-    }
+  :global(.dark) .age-badge {
+    color: #94a3b8;
+  }
 
-    .preview-placeholder {
-      background: #334155;
-      border-color: #475569;
-    }
+  :global(.dark) .badge-purple {
+    background: #4c1d95;
+    color: #c4b5fd;
+  }
 
-    .cancel-btn {
-      background: #1e293b;
-      border-color: #475569;
-      color: #cbd5e1;
-    }
+  :global(.dark) .badge-blue {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
 
-    .cancel-btn:hover {
-      background: #334155;
-    }
+  :global(.dark) .badge-green {
+    background: #064e3b;
+    color: #6ee7b7;
+  }
 
-    .photo-upload-section,
-    .form-actions {
-      border-color: #334155;
-    }
+  :global(.dark) .form-label {
+    color: #cbd5e1;
+  }
+
+  :global(.dark) .form-input,
+  :global(.dark) .form-textarea {
+    background: #1e293b;
+    border-color: #475569;
+    color: #f8fafc;
+  }
+
+  :global(.dark) .form-input::placeholder,
+  :global(.dark) .form-textarea::placeholder {
+    color: #64748b;
+  }
+
+  :global(.dark) .form-input:focus,
+  :global(.dark) .form-textarea:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  }
+
+  :global(.dark) .upload-label {
+    background: #1e2d4a;
+    color: #93c5fd;
+  }
+
+  :global(.dark) .upload-label:hover {
+    background: #2d4a7a;
+  }
+
+  :global(.dark) .preview-placeholder {
+    background: #334155;
+    border-color: #475569;
+    color: #64748b;
+  }
+
+  :global(.dark) .cancel-btn {
+    background: #1e293b;
+    border-color: #475569;
+    color: #cbd5e1;
+  }
+
+  :global(.dark) .cancel-btn:hover {
+    background: #334155;
+  }
+
+  :global(.dark) .photo-upload-section,
+  :global(.dark) .form-actions {
+    border-top-color: #334155;
+    border-bottom-color: #334155;
+  }
+
+  :global(.dark) .save-btn:disabled {
+    background: #475569;
   }
 </style>
