@@ -135,7 +135,7 @@
             <span class="window-dot yellow"></span>
             <span class="window-dot green"></span>
             <div class="url-bar">
-              <span>skulman.vercel.app/dashboard</span>
+              <span>lsainternational.vercel.app/dashboard</span>
             </div>
           </div>
 
