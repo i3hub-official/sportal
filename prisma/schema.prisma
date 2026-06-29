@@ -13,6 +13,12 @@ datasource db {
 // ─────────────────────────────────────────
 // ENUMS
 // ─────────────────────────────────────────
+enum ScratchCardStatus {
+  UNUSED      // never been used
+  USED        // successfully checked a result
+  EXPIRED     // past expiry date
+  DEACTIVATED // manually disabled by admin
+}
 
 enum Role {
   SUPER_ADMIN // Headmaster
@@ -137,6 +143,7 @@ model AcademicYear {
   classes Class[]
   terms   TermRecord[]
   fees    FeeStructure[]
+  scratchCards  ScratchCard[]
 
   @@map("academic_years")
 }
@@ -344,6 +351,43 @@ model Result {
 
   @@unique([studentProfileId, subjectId, termRecordId])
   @@map("results")
+}
+
+model ScratchCard {
+  id          String            @id @default(cuid())
+  serial      String            @unique  // e.g. "SC-2024-000001" — printed on card
+  pin         String            @unique  // 12-digit PIN under the scratch surface
+  status      ScratchCardStatus @default(UNUSED)
+  /// How many result-checks this card allows (default 1 for single-use)
+  usesAllowed Int               @default(1)
+  usesCount   Int               @default(0)
+  expiresAt   DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  /// Which academic year this card is valid for (null = any year)
+  academicYearId String?
+  academicYear   AcademicYear?  @relation(fields: [academicYearId], references: [id])
+
+  usages ScratchCardUsage[]
+
+  @@map("scratch_cards")
+}
+
+model ScratchCardUsage {
+  id             String   @id @default(cuid())
+  scratchCardId  String
+  /// The admission number that was checked with this card
+  admissionNo    String
+  /// Snapshot of what was returned (term, year) for audit trail
+  termRecordId   String?
+  academicYearId String?
+  checkedAt      DateTime @default(now())
+  ipAddress      String?
+
+  scratchCard ScratchCard @relation(fields: [scratchCardId], references: [id], onDelete: Cascade)
+
+  @@map("scratch_card_usages")
 }
 
 // ─────────────────────────────────────────

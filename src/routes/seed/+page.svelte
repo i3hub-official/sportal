@@ -19,6 +19,7 @@
     subjects:           'Subjects',
     classes:            'Classes',
     feeStructures:      'Fee Structures',
+    scratchCards:       'Scratch Cards',
     students:           'Students',
     results:            'Result Records',
     attendanceRecords:  'Attendance Rows',
@@ -182,6 +183,7 @@
               <span>✓ 20 subjects across all levels</span>
               <span>✓ 27 classes (Nursery 1 → SS 3)</span>
               <span>✓ 15 fee structures</span>
+              <span>✓ 200 scratch cards + 1 demo card</span>
               <span>✓ Students with realistic profiles</span>
               <span>✓ CA + exam scores, grades, positions</span>
               <span>✓ Daily attendance (every school day)</span>

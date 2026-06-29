@@ -266,10 +266,10 @@ export const load: PageServerLoad = async () => {
 export const actions = {
   seed: async (event: any) => {
     const data             = await event.request.formData();
-    const schoolName       = data.get('schoolName')?.toString().trim()       ?? 'I3 Academy';
+    const schoolName       = data.get('schoolName')?.toString().trim()       ?? 'Demo School';
     const adminEmail       = data.get('adminEmail')?.toString().trim()       ?? '';
     const adminPass        = data.get('adminPass')?.toString()               ?? '';
-    const yearName         = data.get('yearName')?.toString().trim()         ?? '2025/2026';
+    const yearName         = data.get('yearName')?.toString().trim()         ?? '2024/2025';
     const yearStart        = data.get('yearStart')?.toString()               ?? '';
     const yearEnd          = data.get('yearEnd')?.toString()                 ?? '';
     const studentsPerClass = clamp(Number(data.get('studentsPerClass') ?? 15), 1, 50);
@@ -295,7 +295,7 @@ export const actions = {
 
     const counts = {
       users: 0, staff: 0, academicYears: 0, terms: 0, gradeScales: 0,
-      subjects: 0, classes: 0, feeStructures: 0, students: 0,
+      subjects: 0, classes: 0, feeStructures: 0, scratchCards: 0, students: 0,
       results: 0, attendanceRecords: 0, feeRecords: 0,
     };
 
@@ -465,9 +465,66 @@ export const actions = {
     }
     counts.feeStructures = feeDefs.length;
 
-    // ── 9. Students + results + attendance + fee records ──────────────────────
+    // calYear needed by scratch cards AND admission numbers — declare once here
+    const calYear = new Date().getFullYear();
+
+    // ── 9. Scratch cards ──────────────────────────────────────────────────────
+    // Wrapped in try/catch: if the ScratchCard model hasn't been migrated yet,
+    // seeding skips this section with a console warning instead of crashing.
+    try {
+      const scModel = (db as any).scratchCard;
+      if (!scModel) throw new Error('model_missing');
+
+      const demoCard = await scModel.findUnique({ where: { serial: 'SC-DEMO-000001' } });
+      if (!demoCard) {
+        await scModel.create({
+          data: {
+            serial:         'SC-DEMO-000001',
+            pin:            '123456789012',
+            status:         'UNUSED',
+            usesAllowed:    999,
+            academicYearId: academicYear.id,
+            expiresAt:      new Date(Date.now() + 365 * 24 * 60 * 60 * 1000 * 5),
+          },
+        });
+        counts.scratchCards++;
+      }
+
+      const existingCardCount = await scModel.count();
+      const cardsToCreate = 200;
+      for (let c = 1; c <= cardsToCreate; c++) {
+        const serial = `SC-${calYear}-${String(existingCardCount + c).padStart(6, '0')}`;
+        const exists = await scModel.findUnique({ where: { serial } });
+        if (exists) continue;
+
+        let pin: string;
+        let pinTaken = true;
+        do {
+          pin = Array.from({ length: 12 }, () => Math.floor(Math.random() * 10)).join('');
+          const clash = await scModel.findUnique({ where: { pin } });
+          pinTaken = !!clash;
+        } while (pinTaken);
+
+        await scModel.create({
+          data: {
+            serial,
+            pin,
+            status:         'UNUSED',
+            usesAllowed:    1,
+            academicYearId: academicYear.id,
+            expiresAt:      new Date(new Date(yearEnd).getTime() + 90 * 24 * 60 * 60 * 1000),
+          },
+        });
+        counts.scratchCards++;
+      }
+    } catch (e: any) {
+      const msg = e?.message ?? '';
+      if (msg !== 'model_missing' && !msg.includes('does not exist') && !msg.includes('table') && !msg.includes('relation')) throw e;
+      console.warn('[seed] ScratchCard table not found — run: npx prisma migrate dev after adding schema-additions.prisma');
+    }
+
+    // ── 10. Students + results + attendance + fee records ─────────────────────
     let admissionCounter = await db.studentProfile.count();
-    const calYear        = new Date().getFullYear();
 
     // Which subjects belong to which level
     const subjectsByLevel: Record<string, Array<{ id: string; difficulty: number; code: string }>> = {
@@ -489,7 +546,7 @@ export const actions = {
         const firstName = gender === 'MALE' ? pick(FIRST_NAMES_MALE) : pick(FIRST_NAMES_FEMALE);
         const lastName  = pick(LAST_NAMES);
         admissionCounter++;
-        const admissionNo = `LSAI/${calYear}/${String(admissionCounter).padStart(4, '0')}`;
+        const admissionNo = `SMS/${calYear}/${String(admissionCounter).padStart(4, '0')}`;
 
         const existing = await db.studentProfile.findUnique({ where: { admissionNo } });
         if (existing) { newStudentIds.push(existing.id); continue; }
