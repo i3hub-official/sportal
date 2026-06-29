@@ -1,7 +1,7 @@
 <!-- src/routes/results/+page.svelte -->
 <!-- Public result checker — students enter admission no + scratch card PIN -->
 <script lang="ts">
-  import { Search, Printer, AlertCircle, CheckCircle2, BookOpen, ChevronDown, CreditCard, Info } from 'lucide-svelte';
+  import { Search, Printer, AlertCircle, BookOpen, ChevronDown, CreditCard, Info } from 'lucide-svelte';
 
   // ── State ──────────────────────────────────────────────────────────────────
   let admissionNo = $state('');
@@ -19,6 +19,12 @@
     const raw = (e.target as HTMLInputElement).value.replace(/\D/g, '').slice(0, 12);
     pin        = raw;
     pinDisplay = raw.match(/.{1,4}/g)?.join('-') ?? raw;
+  }
+
+  function ordinal(n: number) {
+    const s = ['th','st','nd','rd'];
+    const v = n % 100;
+    return s[(v - 20) % 10] || s[v] || s[0];
   }
 
   // ── Check result ───────────────────────────────────────────────────────────
@@ -52,7 +58,7 @@
     }
   }
 
-  // Re-check a different term (PIN already used, so we allow switching)
+  // Re-check a different term
   async function switchTerm(newTermId: string) {
     termId = newTermId;
     await checkResult();
@@ -106,7 +112,9 @@
       <div class="checker-wrap no-print">
         <div class="checker-card">
           <div class="checker-top">
-            <CreditCard size={28} class="checker-icon" />
+            <div class="checker-icon-wrap">
+              <CreditCard size={28} />
+            </div>
             <h1>Check Your Result</h1>
             <p>Enter your admission number and scratch card PIN to view your result.</p>
           </div>
@@ -275,7 +283,7 @@
             </thead>
             <tbody>
               {#each result.results as row, i}
-                <tr class:row-fail={(row.total ?? 0) < 50 && result.student.level !== 'NURSERY'}>
+                <tr class:row-fail={(row.total ?? 0) < 50}>
                   <td class="col-no">{i + 1}</td>
                   <td class="col-subject">{row.subject}</td>
                   <td class="col-score">{row.caScore ?? '—'}</td>
@@ -312,35 +320,17 @@
         <!-- Grade key -->
         <div class="grade-key">
           <p class="grade-key-title">Grading Key</p>
-          {#if result.student.level === 'SECONDARY'}
-            <div class="grade-key-items">
-              <span><b>A1</b> 75–100 Excellent</span>
-              <span><b>B2</b> 70–74 Very Good</span>
-              <span><b>B3</b> 65–69 Good</span>
-              <span><b>C4</b> 60–64 Credit</span>
-              <span><b>C5</b> 55–59 Credit</span>
-              <span><b>C6</b> 50–54 Credit</span>
-              <span><b>D7</b> 45–49 Pass</span>
-              <span><b>E8</b> 40–44 Pass</span>
-              <span><b>F9</b> 0–39 Fail</span>
-            </div>
-          {:else if result.student.level === 'PRIMARY'}
-            <div class="grade-key-items">
-              <span><b>A</b> 75–100 Excellent</span>
-              <span><b>B</b> 60–74 Very Good</span>
-              <span><b>C</b> 50–59 Good</span>
-              <span><b>D</b> 40–49 Pass</span>
-              <span><b>F</b> 0–39 Fail</span>
-            </div>
-          {:else}
-            <div class="grade-key-items">
-              <span><b>E</b> 75–100 Excellent</span>
-              <span><b>VG</b> 60–74 Very Good</span>
-              <span><b>G</b> 50–59 Good</span>
-              <span><b>S</b> 40–49 Satisfactory</span>
-              <span><b>NS</b> 0–39 Needs Support</span>
-            </div>
-          {/if}
+          <div class="grade-key-items">
+            <span><b>A1</b> 75–100 Excellent</span>
+            <span><b>B2</b> 70–74 Very Good</span>
+            <span><b>B3</b> 65–69 Good</span>
+            <span><b>C4</b> 60–64 Credit</span>
+            <span><b>C5</b> 55–59 Credit</span>
+            <span><b>C6</b> 50–54 Credit</span>
+            <span><b>D7</b> 45–49 Pass</span>
+            <span><b>E8</b> 40–44 Pass</span>
+            <span><b>F9</b> 0–39 Fail</span>
+          </div>
         </div>
 
         <!-- Sheet footer -->
@@ -369,14 +359,6 @@
 
   </main>
 </div>
-
-<script>
-  function ordinal(n) {
-    const s = ['th','st','nd','rd'];
-    const v = n % 100;
-    return s[(v - 20) % 10] || s[v] || s[0];
-  }
-</script>
 
 <style>
   /* ── Reset & base ──────────────────────────────────────────────────────────── */
@@ -415,7 +397,17 @@
     box-shadow: 0 4px 24px rgba(0,0,0,.07);
   }
   .checker-top { text-align: center; margin-bottom: 1.5rem; }
-  .checker-top :global(.checker-icon) { color: #1e3a5f; margin-bottom: .75rem; }
+  .checker-icon-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 1rem;
+    background: #1e3a5f;
+    color: white;
+    margin-bottom: .75rem;
+  }
   .checker-top h1 { font-size: 1.375rem; font-weight: 700; color: #1e293b; }
   .checker-top p  { font-size: .875rem; color: #64748b; margin-top: .35rem; }
 
