@@ -220,7 +220,7 @@
   }
 </script>
 
-<svelte:head><title>Timetable — SMS</title></svelte:head>
+<svelte:head><title>Timetable — LSAI</title></svelte:head>
 
 <!-- Hidden delete form -->
 <form bind:this={deleteForm} method="POST" action="?/deleteSlot" style="display:none">

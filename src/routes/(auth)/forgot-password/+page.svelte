@@ -9,7 +9,7 @@
 </script>
 
 <svelte:head>
-	<title>Forgot Password — SMS</title>
+	<title>Forgot Password — LSAI</title>
 </svelte:head>
 
 <div class="forgot-container">

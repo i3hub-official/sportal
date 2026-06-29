@@ -118,7 +118,7 @@
 </script>
 
 <svelte:head>
-  <title>Students — SMS</title>
+  <title>Students — LSAI</title>
 </svelte:head>
 
 <div class="students-container" onclick={handleClickOutside}>

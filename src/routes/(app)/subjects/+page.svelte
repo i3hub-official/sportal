@@ -14,7 +14,7 @@
 </script>
 
 <svelte:head>
-  <title>Subjects — SMS</title>
+  <title>Subjects — LSAI</title>
 </svelte:head>
 
 <div class="subjects-container">

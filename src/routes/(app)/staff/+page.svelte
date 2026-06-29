@@ -49,7 +49,7 @@
 </script>
 
 <svelte:head>
-  <title>Staff — SMS</title>
+  <title>Staff — LSAI</title>
 </svelte:head>
 
 <div class="staff-container">

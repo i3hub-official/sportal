@@ -89,7 +89,7 @@
 </script>
 
 <svelte:head>
-  <title>Classes — SMS</title>
+  <title>Classes — LSAI</title>
 </svelte:head>
 
 <div class="classes-container" onclick={handleClickOutside}>

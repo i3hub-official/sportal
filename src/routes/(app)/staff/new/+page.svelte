@@ -157,7 +157,7 @@
 </script>
 
 <svelte:head>
-  <title>Add Staff — SMS</title>
+  <title>Add Staff — LSAI</title>
 </svelte:head>
 
 <div class="add-staff-container" onclick={handleClickOutside}>

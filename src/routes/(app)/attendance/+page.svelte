@@ -283,7 +283,7 @@
 </script>
 
 <svelte:head>
-  <title>Attendance — SMS</title>
+  <title>Attendance — LSAI</title>
 </svelte:head>
 
 <div class="attendance-container" onclick={handleClickOutside}>

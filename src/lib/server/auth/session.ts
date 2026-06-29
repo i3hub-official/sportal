@@ -2,7 +2,7 @@
 import { db } from '$lib/server/prisma';
 import type { User, Session } from '@prisma/client';
 const SESSION_DURATION_DAYS = 30;
-export const SESSION_COOKIE_NAME = 'sms_session';
+export const SESSION_COOKIE_NAME = 'lsai_session';
 
 // ── Create ────────────────────────────────────────────────────────────────────
 export async function createSession(

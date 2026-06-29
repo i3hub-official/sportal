@@ -38,7 +38,7 @@
   }
 </script>
 
-<svelte:head><title>Dashboard — SMS</title></svelte:head>
+<svelte:head><title>Dashboard — LSAI</title></svelte:head>
 
 <div class="dashboard-container">
 

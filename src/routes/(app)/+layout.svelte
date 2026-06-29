@@ -331,7 +331,7 @@
         <GraduationCap class="icon-sm" />
       </div>
       <div class="brand-text">
-        <p class="brand-name">SMS Portal</p>
+        <p class="brand-name">LSAI Portal</p>
         <p class="brand-sub">School Management</p>
       </div>
     </div>
@@ -395,7 +395,7 @@
       <button onclick={() => sidebarOpen = true} class="menu-btn">
         <Menu class="icon-sm" />
       </button>
-      <span class="topbar-title">SMS Portal</span>
+      <span class="topbar-title">LSAI Portal</span>
       {#if isNavigating}
         <div class="nav-pulse"></div>
       {/if}

@@ -78,7 +78,7 @@ export const actions: Actions = {
     }
 
     // ── Generate temp password ────────────────────────────────────────────────
-    const tempPassword = `Sms@${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    const tempPassword = `Lsai@${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
     const passwordHash = await hashPassword(tempPassword);
 
     // ── Create user + staffProfile in one transaction ─────────────────────────

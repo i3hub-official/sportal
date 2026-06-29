@@ -50,7 +50,7 @@
 </script>
 
 <svelte:head>
-  <title>Settings — SMS</title>
+  <title>Settings — LSAI</title>
 </svelte:head>
 
 <div class="settings-container">

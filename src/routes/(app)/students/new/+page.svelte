@@ -29,7 +29,7 @@
 </script>
 
 <svelte:head>
-  <title>Enrol Student — SMS</title>
+  <title>Enrol Student — LSAI</title>
 </svelte:head>
 
 <div class="enrol-container">

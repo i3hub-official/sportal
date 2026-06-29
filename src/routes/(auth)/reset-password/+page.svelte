@@ -14,7 +14,7 @@
 </script>
 
 <svelte:head>
-  <title>Reset Password — SMS</title>
+  <title>Reset Password — LSAI</title>
 </svelte:head>
 
 <div class="reset-container">

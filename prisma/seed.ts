@@ -491,7 +491,7 @@ async function main() {
       const firstName = gender === 'MALE' ? pick(FIRST_NAMES_MALE) : pick(FIRST_NAMES_FEMALE);
       const lastName = pick(LAST_NAMES);
       admissionCounter++;
-      const admissionNo = `SMS/${calYear}/${String(admissionCounter).padStart(4, '0')}`;
+      const admissionNo = `LSAI/${calYear}/${String(admissionCounter).padStart(4, '0')}`;
 
       const existing = await db.studentProfile.findUnique({ where: { admissionNo } });
       if (existing) {

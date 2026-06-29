@@ -31,7 +31,7 @@ export async function sendEmail({
   text?: string;
 }) {
   return transporter.sendMail({
-    from: SMTP_FROM ?? `"SMS Portal" <${SMTP_USER}>`,
+    from: SMTP_FROM ?? `"LSAI Portal" <${SMTP_USER}>`,
     to,
     subject,
     html,
@@ -51,13 +51,13 @@ export async function sendPasswordResetEmail({
 }) {
   return sendEmail({
     to,
-    subject: 'Reset Your Password — SMS Portal',
+    subject: 'Reset Your Password — LSAI Portal',
     html: `
       <div style="font-family: system-ui, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px 24px;">
         <h2 style="color: #1e293b; margin-bottom: 8px;">Password Reset Request</h2>
         <p style="color: #475569; margin-bottom: 24px;">Hi ${name},</p>
         <p style="color: #475569; margin-bottom: 24px;">
-          We received a request to reset your password for the School Management System portal.
+          We received a request to reset your password for the LSAI Portal.
           Click the button below to set a new password. This link expires in <strong>1 hour</strong>.
         </p>
         <a href="${resetUrl}"
@@ -70,7 +70,7 @@ export async function sendPasswordResetEmail({
           This link will expire in 1 hour.
         </p>
         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;">
-        <p style="color: #94a3b8; font-size: 0.8rem;">School Management System</p>
+        <p style="color: #94a3b8; font-size: 0.8rem;">LSAI Portal</p>
       </div>
     `,
   });
@@ -92,10 +92,10 @@ export async function sendWelcomeEmail({
 }) {
   return sendEmail({
     to,
-    subject: 'Welcome to SMS Portal',
+    subject: 'Welcome to LSAI Portal',
     html: `
       <div style="font-family: system-ui, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px 24px;">
-        <h2 style="color: #1e293b;">Welcome to SMS Portal 🎉</h2>
+        <h2 style="color: #1e293b;">Welcome to LSAI Portal 🎉</h2>
         <p style="color: #475569;">Hi ${name},</p>
         <p style="color: #475569;">
           Your account has been created on the School Management System as <strong>${role}</strong>.
@@ -115,7 +115,7 @@ export async function sendWelcomeEmail({
           Login to Portal
         </a>
         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;">
-        <p style="color: #94a3b8; font-size: 0.8rem;">School Management System</p>
+        <p style="color: #94a3b8; font-size: 0.8rem;">LSAI Portal</p>
       </div>
     `,
   });

@@ -33,7 +33,7 @@
 </script>
 
 <svelte:head>
-  <title>{staff.firstName} {staff.lastName} — SMS</title>
+  <title>{staff.firstName} {staff.lastName} — LSAI</title>
 </svelte:head>
 
 <div class="staff-detail-container">

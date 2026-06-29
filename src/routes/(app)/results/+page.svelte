@@ -275,7 +275,7 @@
 </script>
 
 <svelte:head>
-  <title>Results — SMS</title>
+  <title>Results — LSAI</title>
 </svelte:head>
 
 <div class="results-container" onclick={handleClickOutside}>

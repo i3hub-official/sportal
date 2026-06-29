@@ -46,7 +46,7 @@
 </script>
 
 <svelte:head>
-  <title>SMS — School Management System</title>
+  <title>LSAI — School Management System</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet" />
@@ -56,7 +56,7 @@
 <nav class="nav">
   <div class="nav-logo">
     <div class="logo-box">S</div>
-    <span class="logo-text">SMS Portal</span>
+    <span class="logo-text">LSAI Portal</span>
   </div>
   <a href="/login" class="signin-btn">
     Sign In
@@ -135,7 +135,7 @@
             <span class="window-dot yellow"></span>
             <span class="window-dot green"></span>
             <div class="url-bar">
-              <span>sms.school.edu.ng/dashboard</span>
+              <span>skulman.vercel.app/dashboard</span>
             </div>
           </div>
 
@@ -263,8 +263,8 @@
 <footer class="footer">
   <div class="footer-container">
     <div class="footer-logo">
-      <div class="footer-logo-box">S</div>
-      <span class="footer-logo-text">SMS Portal</span>
+      <div class="footer-logo-box">LSAI</div>
+      <span class="footer-logo-text">LSAI Portal</span>
     </div>
     <p class="footer-text">School Management System · Nursery, Primary & Secondary</p>
   </div>

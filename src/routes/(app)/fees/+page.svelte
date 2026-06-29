@@ -138,7 +138,7 @@
 </script>
 
 <svelte:head>
-  <title>Fees — SMS</title>
+  <title>Fees — LSAI</title>
 </svelte:head>
 
 <div class="fees-container" onclick={handleClickOutside}>

@@ -41,7 +41,7 @@
 </script>
 
 <svelte:head>
-  <title>{student.firstName} {student.lastName} — SMS</title>
+  <title>{student.firstName} {student.lastName} — LSAI</title>
 </svelte:head>
 
 <div class="student-detail-container">

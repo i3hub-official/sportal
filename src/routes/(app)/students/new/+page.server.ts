@@ -34,7 +34,7 @@ export const actions: Actions = {
     // Generate admission number
     const year  = new Date().getFullYear();
     const count = await db.studentProfile.count();
-    const admissionNo = `SMS/${year}/${String(count + 1).padStart(4, '0')}`;
+    const admissionNo = `LSAI/${year}/${String(count + 1).padStart(4, '0')}`;
 
     let photoUrl: string | null = null;
     if (photo && photo.size > 0) {
