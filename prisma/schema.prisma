@@ -128,7 +128,7 @@ model PasswordResetToken {
 
 model AcademicYear {
   id        String   @id @default(cuid())
-  name      String   @unique // e.g. "2024/2025"
+  name      String   @unique // e.g. "2025/2026"
   startDate DateTime
   endDate   DateTime
   isCurrent Boolean  @default(false)
@@ -246,7 +246,7 @@ model StaffSubject {
 model StudentProfile {
   id            String      @id @default(cuid())
   userId        String?     @unique // null if no portal access
-  admissionNo   String      @unique // e.g. "SMS/2024/001"
+  admissionNo   String      @unique // e.g. "i3a/2026/001"
   firstName     String
   lastName      String
   middleName    String?

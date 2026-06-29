@@ -70,6 +70,28 @@
           {/each}
         </div>
 
+        <!-- Demo account credentials -->
+        <div class="creds">
+          <p class="creds-title">Demo Account Passwords</p>
+          <table class="creds-table">
+            <thead>
+              <tr><th>Role</th><th>Email</th><th>Password</th></tr>
+            </thead>
+            <tbody>
+              <tr class="row-admin">
+                <td><span class="badge admin">Super Admin</span></td>
+                <td class="mono">{form.adminEmail}</td>
+                <td class="mono">{form.adminPass}</td>
+              </tr>
+              <tr><td><span class="badge teacher">Teacher</span></td><td class="mono">teacher1@demo.school</td><td class="mono">Teacher@123</td></tr>
+              <tr><td><span class="badge teacher">Teacher</span></td><td class="mono">teacher2@demo.school</td><td class="mono">Teacher@123</td></tr>
+              <tr><td><span class="badge teacher">Teacher</span></td><td class="mono">teacher3@demo.school</td><td class="mono">Teacher@123</td></tr>
+              <tr><td><span class="badge teacher">Teacher</span></td><td class="mono">teacher4@demo.school</td><td class="mono">Teacher@123</td></tr>
+              <tr><td><span class="badge bursar">Bursar</span></td><td class="mono">bursar@demo.school</td><td class="mono">Teacher@123</td></tr>
+            </tbody>
+          </table>
+          <p class="creds-note">⚠️ Save these credentials — this page will not show them again after navigating away.</p>
+        </div>
         <div class="result-actions">
           <a href="/login" class="btn-primary">Go to Login →</a>
           <button class="btn-ghost" onclick={() => window.location.reload()}>
@@ -310,19 +332,13 @@
   .result-val { font-size: 1.2rem; font-weight: 700; color: #15803d; }
   .result-key { font-size: .7rem; color: #64748b; text-align: center; }
 
-  .result-actions { 
-    display: flex; 
-    gap: .75rem; 
-    align-items: center; 
-  }
-  
+  .result-actions { display: flex; gap: .75rem; align-items: center; }
   .btn-primary {
     background: #7c3aed; color: white; font-size: .875rem;
     font-weight: 600; padding: .5rem 1.125rem;
     border-radius: .5rem; text-decoration: none; transition: background .15s;
   }
   .btn-primary:hover { background: #6d28d9; }
-  
   .btn-ghost {
     display: flex; align-items: center; gap: .35rem;
     background: none; border: 1px solid #e2e8f0; color: #475569;
@@ -331,7 +347,35 @@
   }
   .btn-ghost:hover { background: #f8fafc; }
 
-  :global(.spin) { animation: spin .7s linear infinite; }
+  /* Credentials table */
+  .creds {
+    background: #fffbeb; border: 1px solid #fde68a;
+    border-radius: .625rem; padding: 1rem 1.125rem;
+    display: flex; flex-direction: column; gap: .75rem;
+  }
+  .creds-title {
+    font-size: .75rem; font-weight: 700; color: #92400e;
+    text-transform: uppercase; letter-spacing: .05em;
+  }
+  .creds-table { width: 100%; border-collapse: collapse; font-size: .8125rem; }
+  .creds-table th {
+    text-align: left; font-size: .7rem; font-weight: 600;
+    color: #92400e; text-transform: uppercase; letter-spacing: .04em;
+    padding: .3rem .5rem; border-bottom: 1px solid #fde68a;
+  }
+  .creds-table td { padding: .4rem .5rem; border-bottom: 1px solid #fef3c7; color: #1e293b; vertical-align: middle; }
+  .creds-table tr:last-child td { border-bottom: none; }
+  .mono { font-family: ui-monospace, monospace; font-size: .8rem; }
+  .badge {
+    display: inline-block; font-size: .7rem; font-weight: 600;
+    padding: .15rem .45rem; border-radius: .3rem;
+  }
+  .badge.admin   { background: #7c3aed; color: white; }
+  .badge.teacher { background: #2563eb; color: white; }
+  .badge.bursar  { background: #0891b2; color: white; }
+  .creds-note { font-size: .75rem; color: #92400e; }
+
+
   @keyframes spin { to { transform: rotate(360deg); } }
 
   @media (max-width: 480px) {

@@ -17,15 +17,12 @@ import { hashPassword } from '$lib/server/auth/password';
 function pick<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
-
 function randInt(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
-
 function randFloat(min: number, max: number, dp = 1) {
   return parseFloat((Math.random() * (max - min) + min).toFixed(dp));
 }
-
 /** Clamp a value between lo and hi */
 function clamp(v: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, v));
@@ -237,6 +234,9 @@ function makeStudentDOB(level: 'NURSERY' | 'PRIMARY' | 'SECONDARY'): Date {
 // Load
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Module-level counter so receipt numbers are guaranteed unique within a seed run
+let receiptCounter = 0;
+
 export const load: PageServerLoad = async () => {
   const [userCount, studentCount, classCount, subjectCount, resultCount, attendanceCount] =
     await Promise.all([
@@ -263,16 +263,28 @@ export const load: PageServerLoad = async () => {
 // Action
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const actions: Actions = {
-  seed: async ({ request }) => {
-    const data = await request.formData();
-    const schoolName = data.get('schoolName')?.toString().trim() ?? 'I3 Hub International Schools';
-    const adminEmail = data.get('adminEmail')?.toString().trim() ?? '';
-    const adminPass = data.get('adminPass')?.toString() ?? '';
-    const yearName = data.get('yearName')?.toString().trim() ?? '2025/2026';
-    const yearStart = data.get('yearStart')?.toString() ?? '';
-    const yearEnd = data.get('yearEnd')?.toString() ?? '';
+export const actions = {
+  seed: async (event: any) => {
+    const data             = await event.request.formData();
+    const schoolName       = data.get('schoolName')?.toString().trim()       ?? 'I3 Academy';
+    const adminEmail       = data.get('adminEmail')?.toString().trim()       ?? '';
+    const adminPass        = data.get('adminPass')?.toString()               ?? '';
+    const yearName         = data.get('yearName')?.toString().trim()         ?? '2025/2026';
+    const yearStart        = data.get('yearStart')?.toString()               ?? '';
+    const yearEnd          = data.get('yearEnd')?.toString()                 ?? '';
     const studentsPerClass = clamp(Number(data.get('studentsPerClass') ?? 15), 1, 50);
+
+    // Seed the receipt counter from existing records so re-runs never collide
+    const lastReceipt = await db.feeRecord.findFirst({
+      where:   { receiptNo: { not: null } },
+      orderBy: { createdAt: 'desc' },
+      select:  { receiptNo: true },
+    });
+    if (lastReceipt?.receiptNo) {
+      const parts = lastReceipt.receiptNo.split('-');
+      const last  = parseInt(parts[parts.length - 1] ?? '0', 10);
+      if (!isNaN(last)) receiptCounter = last;
+    }
 
     if (!adminEmail || !adminPass)
       return fail(400, { error: 'Admin email and password are required.' });
@@ -293,35 +305,29 @@ export const actions: Actions = {
       if (!await db.staffProfile.findUnique({ where: { staffId: 'ADM-001' } })) {
         await db.user.create({
           data: {
-            email: adminEmail,
-            passwordHash: ph,
-            role: 'SUPER_ADMIN',
+            email: adminEmail, passwordHash: ph, role: 'SUPER_ADMIN',
             staffProfile: {
               create: {
-                staffId: 'ADM-001',
-                firstName: 'Head',
-                lastName: 'Master',
-                gender: 'MALE',
-                staffRole: 'HEADMASTER',
+                staffId: 'ADM-001', firstName: 'Head', lastName: 'Master',
+                gender: 'MALE', staffRole: 'HEADMASTER',
               },
             },
           },
         });
-        counts.users++;
-        counts.staff++;
+        counts.users++; counts.staff++;
       }
     }
 
     // ── 2. Demo teachers ──────────────────────────────────────────────────────
     const demoTeachers = [
-      { email: 'teacher1@demo.school', staffId: 'TCH-001', firstName: 'Amaka', lastName: 'Okonkwo', gender: 'FEMALE' as const, dept: 'Science', qual: 'B.Ed Science Education' },
-      { email: 'teacher2@demo.school', staffId: 'TCH-002', firstName: 'Emeka', lastName: 'Eze', gender: 'MALE' as const, dept: 'Mathematics', qual: 'B.Sc Mathematics' },
-      { email: 'teacher3@demo.school', staffId: 'TCH-003', firstName: 'Fatima', lastName: 'Aliyu', gender: 'FEMALE' as const, dept: 'Languages', qual: 'B.A English' },
-      { email: 'teacher4@demo.school', staffId: 'TCH-004', firstName: 'Babatunde', lastName: 'Adeleke', gender: 'MALE' as const, dept: 'Social Sci', qual: 'B.Ed Social Studies' },
-      { email: 'bursar@demo.school', staffId: 'BUR-001', firstName: 'Ngozi', lastName: 'Okafor', gender: 'FEMALE' as const, dept: 'Administration', qual: 'B.Sc Accounting' },
+      { email: 'teacher1@demo.school', staffId: 'TCH-001', firstName: 'Amaka',    lastName: 'Okonkwo',  gender: 'FEMALE' as const, dept: 'Science',      qual: 'B.Ed Science Education'    },
+      { email: 'teacher2@demo.school', staffId: 'TCH-002', firstName: 'Emeka',    lastName: 'Eze',      gender: 'MALE'   as const, dept: 'Mathematics',  qual: 'B.Sc Mathematics'           },
+      { email: 'teacher3@demo.school', staffId: 'TCH-003', firstName: 'Fatima',   lastName: 'Aliyu',    gender: 'FEMALE' as const, dept: 'Languages',    qual: 'B.A English'                },
+      { email: 'teacher4@demo.school', staffId: 'TCH-004', firstName: 'Babatunde',lastName: 'Adeleke',  gender: 'MALE'   as const, dept: 'Social Sci',   qual: 'B.Ed Social Studies'        },
+      { email: 'bursar@demo.school',   staffId: 'BUR-001', firstName: 'Ngozi',    lastName: 'Okafor',   gender: 'FEMALE' as const, dept: 'Administration',qual: 'B.Sc Accounting'           },
     ];
 
-    const staffIds: string[] = [];
+    const staffIds: string[] = []; // collect staffProfile ids for markedBy
     for (const t of demoTeachers) {
       if (!await db.user.findUnique({ where: { email: t.email } })) {
         if (!await db.staffProfile.findUnique({ where: { staffId: t.staffId } })) {
@@ -333,21 +339,16 @@ export const actions: Actions = {
               role: isTeacher ? 'TEACHER' : 'ADMIN',
               staffProfile: {
                 create: {
-                  staffId: t.staffId,
-                  firstName: t.firstName,
-                  lastName: t.lastName,
-                  gender: t.gender,
-                  staffRole: isTeacher ? 'SUBJECT_TEACHER' : 'BURSAR',
-                  department: t.dept,
-                  qualification: t.qual,
+                  staffId: t.staffId, firstName: t.firstName, lastName: t.lastName,
+                  gender: t.gender, staffRole: isTeacher ? 'SUBJECT_TEACHER' : 'BURSAR',
+                  department: t.dept, qualification: t.qual,
                 },
               },
             },
             include: { staffProfile: true },
           });
           if (created.staffProfile) staffIds.push(created.staffProfile.id);
-          counts.users++;
-          counts.staff++;
+          counts.users++; counts.staff++;
         }
       } else {
         const sp = await db.staffProfile.findUnique({ where: { staffId: t.staffId } });
@@ -365,46 +366,32 @@ export const actions: Actions = {
     let academicYear = await db.academicYear.findUnique({ where: { name: yearName } });
     if (!academicYear) {
       academicYear = await db.academicYear.create({
-        data: {
-          name: yearName,
-          startDate: new Date(yearStart),
-          endDate: new Date(yearEnd),
-          isCurrent: true,
-        },
+        data: { name: yearName, startDate: new Date(yearStart), endDate: new Date(yearEnd), isCurrent: true },
       });
       counts.academicYears++;
     }
 
     // ── 4. Term records ───────────────────────────────────────────────────────
     const yearStartMs = new Date(yearStart).getTime();
-    const yearEndMs = new Date(yearEnd).getTime();
-    const termLen = Math.floor((yearEndMs - yearStartMs) / 3);
+    const yearEndMs   = new Date(yearEnd).getTime();
+    const termLen     = Math.floor((yearEndMs - yearStartMs) / 3);
 
-    const termDates: Array<{ term: 'FIRST' | 'SECOND' | 'THIRD'; start: Date; end: Date; isCurrent: boolean }> = [
-      { term: 'FIRST', start: new Date(yearStartMs), end: new Date(yearStartMs + termLen - 1), isCurrent: true },
-      { term: 'SECOND', start: new Date(yearStartMs + termLen), end: new Date(yearStartMs + 2 * termLen - 1), isCurrent: false },
-      { term: 'THIRD', start: new Date(yearStartMs + 2 * termLen), end: new Date(yearEndMs), isCurrent: false },
+    // Nigerian school calendar approximation
+    // Term 1: Sep–Dec  Term 2: Jan–Apr  Term 3: Apr–Jul
+    const termDates: Array<{ term: 'FIRST'|'SECOND'|'THIRD'; start: Date; end: Date; isCurrent: boolean }> = [
+      { term: 'FIRST',  start: new Date(yearStartMs),              end: new Date(yearStartMs + termLen - 1),              isCurrent: true  },
+      { term: 'SECOND', start: new Date(yearStartMs + termLen),    end: new Date(yearStartMs + 2 * termLen - 1),          isCurrent: false },
+      { term: 'THIRD',  start: new Date(yearStartMs + 2 * termLen),end: new Date(yearEndMs),                              isCurrent: false },
     ];
 
     const termRecords: Array<{ id: string; term: string; startDate: Date; endDate: Date }> = [];
     for (const td of termDates) {
       let tr = await db.termRecord.findUnique({
-        where: {
-          term_academicYearId: {
-            term: td.term,
-            academicYearId: academicYear.id,
-          },
-        },
+        where: { term_academicYearId: { term: td.term, academicYearId: academicYear.id } },
       });
       if (!tr) {
         tr = await db.termRecord.create({
-          data: {
-            term: td.term,
-            academicYearId: academicYear.id,
-            startDate: td.start,
-            endDate: td.end,
-            isCurrent: td.isCurrent,
-          },
+          data: { term: td.term, academicYearId: academicYear.id, startDate: td.start, endDate: td.end, isCurrent: td.isCurrent },
         });
         counts.terms++;
       }
@@ -414,7 +401,7 @@ export const actions: Actions = {
     // ── 5. Grade scales ───────────────────────────────────────────────────────
     for (const gs of GRADE_SCALES) {
       await db.gradeScale.upsert({
-        where: { level_grade: { level: gs.level, grade: gs.grade } },
+        where:  { level_grade: { level: gs.level, grade: gs.grade } },
         update: {},
         create: gs,
       });
@@ -425,7 +412,7 @@ export const actions: Actions = {
     const subjectMap: Record<string, { id: string; difficulty: number; level: string }> = {};
     for (const s of ALL_SUBJECTS) {
       const sub = await db.subject.upsert({
-        where: { code: s.code },
+        where:  { code: s.code },
         update: {},
         create: { name: s.name, code: s.code, level: s.level },
       });
@@ -437,18 +424,9 @@ export const actions: Actions = {
     const classMap: Record<string, { id: string; level: string }> = {};
     for (const cd of CLASS_DEFS) {
       const cls = await db.class.upsert({
-        where: {
-          name_academicYearId: {
-            name: cd.name,
-            academicYearId: academicYear.id,
-          },
-        },
+        where:  { name_academicYearId: { name: cd.name, academicYearId: academicYear.id } },
         update: {},
-        create: {
-          name: cd.name,
-          level: cd.level,
-          academicYearId: academicYear.id,
-        },
+        create: { name: cd.name, level: cd.level, academicYearId: academicYear.id },
       });
       classMap[cd.name] = { id: cls.id, level: cd.level };
     }
@@ -457,35 +435,29 @@ export const actions: Actions = {
     // ── 8. Fee structures ─────────────────────────────────────────────────────
     const feeDefs = [
       // Secondary
-      { name: 'School Fees', amount: 25000, term: 'FIRST' as const, level: 'SECONDARY' as const },
-      { name: 'School Fees', amount: 25000, term: 'SECOND' as const, level: 'SECONDARY' as const },
-      { name: 'School Fees', amount: 25000, term: 'THIRD' as const, level: 'SECONDARY' as const },
-      { name: 'PTA Levy', amount: 3000, term: 'FIRST' as const, level: 'SECONDARY' as const },
-      { name: 'Exam Levy', amount: 5000, term: 'THIRD' as const, level: 'SECONDARY' as const },
-      { name: 'ICT Levy', amount: 2000, term: 'SECOND' as const, level: 'SECONDARY' as const },
+      { name: 'School Fees',      amount: 25000, term: 'FIRST'  as const, level: 'SECONDARY' as const },
+      { name: 'School Fees',      amount: 25000, term: 'SECOND' as const, level: 'SECONDARY' as const },
+      { name: 'School Fees',      amount: 25000, term: 'THIRD'  as const, level: 'SECONDARY' as const },
+      { name: 'PTA Levy',         amount: 3000,  term: 'FIRST'  as const, level: 'SECONDARY' as const },
+      { name: 'Exam Levy',        amount: 5000,  term: 'THIRD'  as const, level: 'SECONDARY' as const },
+      { name: 'ICT Levy',         amount: 2000,  term: 'SECOND' as const, level: 'SECONDARY' as const },
       // Primary
-      { name: 'School Fees', amount: 18000, term: 'FIRST' as const, level: 'PRIMARY' as const },
-      { name: 'School Fees', amount: 18000, term: 'SECOND' as const, level: 'PRIMARY' as const },
-      { name: 'School Fees', amount: 18000, term: 'THIRD' as const, level: 'PRIMARY' as const },
-      { name: 'PTA Levy', amount: 2000, term: 'FIRST' as const, level: 'PRIMARY' as const },
-      { name: 'Books & Supplies', amount: 4500, term: 'FIRST' as const, level: 'PRIMARY' as const },
+      { name: 'School Fees',      amount: 18000, term: 'FIRST'  as const, level: 'PRIMARY'   as const },
+      { name: 'School Fees',      amount: 18000, term: 'SECOND' as const, level: 'PRIMARY'   as const },
+      { name: 'School Fees',      amount: 18000, term: 'THIRD'  as const, level: 'PRIMARY'   as const },
+      { name: 'PTA Levy',         amount: 2000,  term: 'FIRST'  as const, level: 'PRIMARY'   as const },
+      { name: 'Books & Supplies', amount: 4500,  term: 'FIRST'  as const, level: 'PRIMARY'   as const },
       // Nursery
-      { name: 'School Fees', amount: 12000, term: 'FIRST' as const, level: 'NURSERY' as const },
-      { name: 'School Fees', amount: 12000, term: 'SECOND' as const, level: 'NURSERY' as const },
-      { name: 'School Fees', amount: 12000, term: 'THIRD' as const, level: 'NURSERY' as const },
-      { name: 'Books & Supplies', amount: 3000, term: 'FIRST' as const, level: 'NURSERY' as const },
+      { name: 'School Fees',      amount: 12000, term: 'FIRST'  as const, level: 'NURSERY'   as const },
+      { name: 'School Fees',      amount: 12000, term: 'SECOND' as const, level: 'NURSERY'   as const },
+      { name: 'School Fees',      amount: 12000, term: 'THIRD'  as const, level: 'NURSERY'   as const },
+      { name: 'Books & Supplies', amount: 3000,  term: 'FIRST'  as const, level: 'NURSERY'   as const },
     ];
 
-    const feeStructureMap: Record<string, string> = {};
+    const feeStructureMap: Record<string, string> = {}; // `${name}|${term}|${level}` → id
     for (const f of feeDefs) {
       const fs = await db.feeStructure.upsert({
-        where: {
-          name_term_academicYearId: {
-            name: f.name,
-            term: f.term,
-            academicYearId: academicYear.id,
-          },
-        },
+        where:  { name_term_academicYearId: { name: f.name, term: f.term, academicYearId: academicYear.id } },
         update: {},
         create: { ...f, academicYearId: academicYear.id },
       });
@@ -495,47 +467,45 @@ export const actions: Actions = {
 
     // ── 9. Students + results + attendance + fee records ──────────────────────
     let admissionCounter = await db.studentProfile.count();
-    const calYear = new Date().getFullYear();
+    const calYear        = new Date().getFullYear();
 
+    // Which subjects belong to which level
     const subjectsByLevel: Record<string, Array<{ id: string; difficulty: number; code: string }>> = {
-      NURSERY: Object.entries(subjectMap).filter(([, v]) => v.level === 'NURSERY').map(([code, v]) => ({ ...v, code })),
-      PRIMARY: Object.entries(subjectMap).filter(([, v]) => v.level === 'PRIMARY').map(([code, v]) => ({ ...v, code })),
-      SECONDARY: Object.entries(subjectMap).filter(([, v]) => v.level === 'SECONDARY').map(([code, v]) => ({ ...v, code })),
+      NURSERY:   Object.entries(subjectMap).filter(([,v]) => v.level === 'NURSERY')  .map(([code, v]) => ({ ...v, code })),
+      PRIMARY:   Object.entries(subjectMap).filter(([,v]) => v.level === 'PRIMARY')  .map(([code, v]) => ({ ...v, code })),
+      SECONDARY: Object.entries(subjectMap).filter(([,v]) => v.level === 'SECONDARY').map(([code, v]) => ({ ...v, code })),
     };
 
     for (const cd of CLASS_DEFS) {
       const { id: classId, level } = classMap[cd.name];
       const classSubjects = subjectsByLevel[level] ?? [];
 
+      // Collect newly created student ids for position computation later
       const newStudentIds: string[] = [];
 
       // ── 9a. Create students ────────────────────────────────────────────────
       for (let i = 0; i < studentsPerClass; i++) {
-        const gender = Math.random() > 0.5 ? 'MALE' : 'FEMALE';
+        const gender    = Math.random() > 0.5 ? 'MALE' : 'FEMALE';
         const firstName = gender === 'MALE' ? pick(FIRST_NAMES_MALE) : pick(FIRST_NAMES_FEMALE);
-        const lastName = pick(LAST_NAMES);
+        const lastName  = pick(LAST_NAMES);
         admissionCounter++;
         const admissionNo = `SMS/${calYear}/${String(admissionCounter).padStart(4, '0')}`;
 
         const existing = await db.studentProfile.findUnique({ where: { admissionNo } });
-        if (existing) {
-          newStudentIds.push(existing.id);
-          continue;
-        }
+        if (existing) { newStudentIds.push(existing.id); continue; }
 
         const student = await db.studentProfile.create({
           data: {
             admissionNo,
-            firstName,
-            lastName,
-            gender: gender as 'MALE' | 'FEMALE',
-            dateOfBirth: makeStudentDOB(level as any),
-            level: level as any,
+            firstName, lastName,
+            gender:        gender as 'MALE' | 'FEMALE',
+            dateOfBirth:   makeStudentDOB(level as any),
+            level:         level as any,
             classId,
             stateOfOrigin: pick(STATES),
-            religion: pick(RELIGIONS),
-            bloodGroup: pick(BLOOD_GROUPS),
-            isActive: true,
+            religion:      pick(RELIGIONS),
+            bloodGroup:    pick(BLOOD_GROUPS),
+            isActive:      true,
           },
         });
         newStudentIds.push(student.id);
@@ -544,6 +514,7 @@ export const actions: Actions = {
 
       if (newStudentIds.length === 0) continue;
 
+      // Assign each student a fixed "ability" score (0.2 – 1.0) — consistent across subjects & terms
       const studentAbility: Record<string, number> = {};
       for (const sid of newStudentIds) {
         studentAbility[sid] = clamp(randFloat(0.2, 1.0), 0.2, 1.0);
@@ -551,29 +522,26 @@ export const actions: Actions = {
 
       // ── 9b. Results — per term, per subject ───────────────────────────────
       for (const tr of termRecords) {
+        // Per-subject score accumulator for position ranking
+        // subjectId → array of { studentId, total }
         const subjectTotals: Record<string, Array<{ studentId: string; total: number }>> = {};
 
         for (const subj of classSubjects) {
           subjectTotals[subj.id] = [];
           for (const sid of newStudentIds) {
             const existing = await db.result.findUnique({
-              where: {
-                studentProfileId_subjectId_termRecordId: {
-                  studentProfileId: sid,
-                  subjectId: subj.id,
-                  termRecordId: tr.id,
-                },
-              },
+              where: { studentProfileId_subjectId_termRecordId: { studentProfileId: sid, subjectId: subj.id, termRecordId: tr.id } },
             });
             if (existing) {
               subjectTotals[subj.id].push({ studentId: sid, total: existing.totalScore ?? 0 });
               continue;
             }
 
-            const ability = studentAbility[sid];
-            const caScore = genScore(ability, 40, subj.difficulty);
+            const ability   = studentAbility[sid];
+            // CA: 40 marks, Exam: 60 marks
+            const caScore   = genScore(ability, 40, subj.difficulty);
             const examScore = genScore(ability, 60, subj.difficulty);
-            const total = parseFloat((caScore + examScore).toFixed(1));
+            const total     = parseFloat((caScore + examScore).toFixed(1));
             const { grade, remark } = computeGrade(total, level as any);
 
             await db.result.create({
@@ -582,11 +550,8 @@ export const actions: Actions = {
                 subjectId: subj.id,
                 classId,
                 termRecordId: tr.id,
-                caScore,
-                examScore,
-                totalScore: total,
-                grade,
-                remark,
+                caScore, examScore, totalScore: total,
+                grade, remark,
                 isPublished: true,
               },
             });
@@ -597,6 +562,8 @@ export const actions: Actions = {
           // ── Compute positions for this subject in this class/term ─────────
           const sorted = [...subjectTotals[subj.id]].sort((a, b) => b.total - a.total);
           for (let pos = 0; pos < sorted.length; pos++) {
+            const sameScore = sorted.filter(x => x.total === sorted[pos].total);
+            const position  = pos + 1; // simple rank (ties share same pos)
             await db.result.updateMany({
               where: {
                 studentProfileId: sorted[pos].studentId,
@@ -604,7 +571,7 @@ export const actions: Actions = {
                 termRecordId: tr.id,
                 classId,
               },
-              data: { position: pos + 1 },
+              data: { position },
             });
           }
         }
@@ -618,21 +585,17 @@ export const actions: Actions = {
         for (const day of days) {
           for (const sid of newStudentIds) {
             const existing = await db.attendance.findUnique({
-              where: {
-                studentProfileId_date: {
-                  studentProfileId: sid,
-                  date: day,
-                },
-              },
+              where: { studentProfileId_date: { studentProfileId: sid, date: day } },
             });
             if (existing) continue;
 
+            // Realistic attendance: ~88% present, 5% absent, 4% late, 3% excused
             const roll = Math.random();
             let status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
-            if (roll < 0.88) status = 'PRESENT';
-            else if (roll < 0.93) status = 'ABSENT';
-            else if (roll < 0.97) status = 'LATE';
-            else status = 'EXCUSED';
+            if (roll < 0.88)       status = 'PRESENT';
+            else if (roll < 0.93)  status = 'ABSENT';
+            else if (roll < 0.97)  status = 'LATE';
+            else                   status = 'EXCUSED';
 
             await db.attendance.create({
               data: {
@@ -643,7 +606,7 @@ export const actions: Actions = {
                 status,
                 markedById: markerId,
                 note: status === 'EXCUSED' ? 'Medical/family excuse' :
-                  status === 'ABSENT' ? null : null,
+                      status === 'ABSENT'  ? null : null,
               },
             });
             counts.attendanceRecords++;
@@ -659,15 +622,11 @@ export const actions: Actions = {
           if (!fsId) continue;
 
           const existing = await db.feeRecord.findUnique({
-            where: {
-              studentProfileId_feeStructureId: {
-                studentProfileId: sid,
-                feeStructureId: fsId,
-              },
-            },
+            where: { studentProfileId_feeStructureId: { studentProfileId: sid, feeStructureId: fsId } },
           });
           if (existing) continue;
 
+          // 55% fully paid, 25% partial, 20% pending/overdue
           const roll = Math.random();
           let amountPaid: number;
           let status: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE';
@@ -676,22 +635,22 @@ export const actions: Actions = {
           let paymentMethod: string | null = null;
 
           if (roll < 0.55) {
-            amountPaid = f.amount;
-            status = 'PAID';
-            paidAt = new Date(yearStartMs + randInt(0, termLen * 0.8));
-            receiptNo = `RCP-${calYear}-${String(Math.floor(Math.random() * 90000) + 10000)}`;
+            amountPaid    = f.amount;
+            status        = 'PAID';
+            paidAt        = new Date(yearStartMs + randInt(0, termLen * 0.8));
+            receiptNo     = `RCP-${calYear}-${String(++receiptCounter).padStart(6, '0')}`;
             paymentMethod = pick(PAY_METHODS);
           } else if (roll < 0.80) {
-            amountPaid = Math.round(f.amount * randFloat(0.3, 0.8));
-            status = 'PARTIAL';
-            paidAt = new Date(yearStartMs + randInt(0, termLen * 0.9));
+            amountPaid    = Math.round(f.amount * randFloat(0.3, 0.8));
+            status        = 'PARTIAL';
+            paidAt        = new Date(yearStartMs + randInt(0, termLen * 0.9));
             paymentMethod = pick(PAY_METHODS);
           } else if (roll < 0.92) {
             amountPaid = 0;
-            status = 'PENDING';
+            status     = 'PENDING';
           } else {
             amountPaid = 0;
-            status = 'OVERDUE';
+            status     = 'OVERDUE';
           }
 
           await db.feeRecord.create({
@@ -700,7 +659,7 @@ export const actions: Actions = {
               classId,
               feeStructureId: fsId,
               amountPaid,
-              balance: f.amount - amountPaid,
+              balance:       f.amount - amountPaid,
               status,
               paidAt,
               receiptNo,
@@ -710,12 +669,14 @@ export const actions: Actions = {
           counts.feeRecords++;
         }
       }
-    }
+    } // end CLASS_DEFS loop
 
     return {
       success: true,
       counts,
       message: `"${schoolName}" seeded successfully.`,
+      adminEmail,
+      adminPass,
     };
   },
 };
