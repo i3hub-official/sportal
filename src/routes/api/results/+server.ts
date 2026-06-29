@@ -1,7 +1,11 @@
 // src/routes/api/results/+server.ts
 import type { RequestHandler } from './$types';
-import { db } from '$lib/server/prisma';
+import { PrismaClient } from '@prisma/client';
 import { ok, unauthorized, badRequest, serverError } from '$lib/server/utils/response';
+
+
+// Initialize Prisma client
+const db = new PrismaClient();
 
 function guard(event: Parameters<RequestHandler>[0]) {
   if (!event.locals.user) return unauthorized();

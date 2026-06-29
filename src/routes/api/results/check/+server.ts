@@ -5,7 +5,10 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { db } from '$lib/server/prisma';
+import { PrismaClient } from '@prisma/client';
+
+// Initialize Prisma client
+const db = new PrismaClient();
 
 // ── Rate-limiting (simple in-memory, replace with Redis in production) ────────
 const attempts = new Map<string, { count: number; resetAt: number }>();
@@ -34,6 +37,8 @@ function gradePoints(grade: string | null): number {
 }
 
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
+  
+   try {
   const ip = getClientAddress();
 
   if (isRateLimited(ip)) {
@@ -195,4 +200,8 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
       usesRemaining: card.usesAllowed - newCount,
     },
   });
+   } finally {
+    // Optional: disconnect if you want to manage connections
+   await db.$disconnect();
+  }
 };
